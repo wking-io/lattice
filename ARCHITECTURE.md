@@ -61,6 +61,14 @@ Propose an HTMLElement mount inside a shadow root to isolate styles. Verify Fold
 
 Hiding the panel removes its visible UI while the program remains alive for shortcuts, state, and agent access. Uninstalling the overlay or replacing it during hot reload disposes the entire program, observers, listeners, pending work, and tool registrations. Do not start a second independent Effect runtime per adapter or action.
 
+## Coordinate units and zoom
+
+Confirmed: all pixel-based coordinates and grid dimensions use CSS pixels. Every line is 1 CSS pixel thick. Browser zoom scales their apparent thickness with the page; there is no constant-device-pixel hairline mode in v1.
+
+Keep source values in their original units. Browser zoom must not rewrite a stored pixel position, gutter, or margin. Recompute stretch geometry and percentage positions against current CSS-pixel dimensions when those dimensions change.
+
+Proposed renderer rule: perform measurements and geometry calculations in the same CSS coordinate system without multiplying logical positions by device pixel ratio. If a raster renderer needs a higher-resolution backing surface, keep that conversion internal to rendering. Origins, scrollbar treatment, rounding/drag precision, renderer choice, and pinch-zoom behavior remain open.
+
 ## Agent interface
 
 Expose Lattice-specific read and edit operations over WebMCP, retaining the JavaScript fallback. The public interface uses serializable inputs and results; callers need not understand Foldkit Messages or Effect values.
@@ -94,7 +102,7 @@ The first integration check must demonstrate both a functioning overlay during d
 
 ## Next decisions
 
-1. Coordinate conventions, renderer, and long-document behavior.
+1. Coordinate origins, scrollbar treatment, rounding/drag precision, renderer, and long-document behavior. CSS-pixel coordinates and 1 CSS pixel strokes are confirmed.
 2. Undo/redo keyboard ownership, history limits, same-document navigation behavior, and shared preset-library scope. Session-only history and drag/batch grouping are confirmed.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.

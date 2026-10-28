@@ -49,19 +49,19 @@ The supported combinations and automatic-count behavior must be checked against 
 
 - Columns use the visible browser width and respond to browser zoom.
 - Rows use full document height, not visible window height.
-- Individual positions can be pixels or percentages.
+- Individual positions can be CSS pixels or percentages. All pixel-based positions, sizes, gutters, margins, and offsets use CSS pixels.
 - Grids cover the page in v1; attachment to individual elements is deferred.
 - There are no breakpoint-specific configurations or automatic switches between desktop/mobile presets in v1.
 - Preserve the configured values on resize. Stretch grids and percentage guides still resolve against their current dimensions; fixed pixel values remain fixed in their coordinate system.
 
-Exact coordinate conventions and zoom rendering are proposed below rather than treated as settled requirements.
+CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Origins, scrollbar treatment, fractional positions, and pinch-zoom behavior remain open.
 
 ### Appearance
 
-- Lines are 1px thick.
+- Lines are 1 CSS pixel thick, including when browser zoom changes. Their apparent screen thickness scales with the page; do not compensate to maintain a constant device-pixel hairline.
 - Provide bright preset colors and a custom-color option.
 - Supply common built-in grid presets and support user-created presets.
-- Exact palettes, built-in preset contents, and the meaning of 1px under zoom remain to be selected.
+- Exact palettes and built-in preset contents remain to be selected.
 
 ### Presets
 
@@ -148,7 +148,7 @@ WebMCP is an evolving integration. Check the [current imperative API](https://de
 
 These suggestions were discussed but were not individually finalized:
 
-- Use CSS pixels for coordinates and strokes, with browser content width excluding the scrollbar. Resolve vertical percentages against that width and horizontal percentages against document height; use left/top origins.
+- Use browser content width excluding the scrollbar. Resolve vertical percentages against that width and horizontal percentages against document height; use left/top origins. CSS pixels for coordinates and strokes are confirmed above.
 - Recalculate when zoom, viewport dimensions, or document content size changes. A horizontal percentage guide or stretch row can move when content expands. The overlay must not increase the document dimensions it measures.
 - Draw both boundaries of columns and rows with transparent interiors. Avoid visually thickening coincident boundaries.
 - Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
@@ -166,7 +166,7 @@ Resolve these before the implementation slice that depends on them:
 | Packaging | Published package name and license. Lattice and the public `wking-io/lattice` repository are confirmed; npm name availability has not been checked. |
 | Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
-| Geometry | CSS-pixel versus device-pixel strokes, origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. |
+| Geometry | Origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. Coordinates and strokes use CSS pixels. |
 | Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
 | Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/navigation/shared-preset scope. History is session-only. |
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
@@ -200,7 +200,7 @@ Resolve these before the implementation slice that depends on them:
 Use focused automated checks for state and geometry, plus browser checks for interaction and integration:
 
 - Correct column/row geometry for supported alignments, count modes, gutters, margins, and offsets.
-- Expected pixel/percentage and stretch behavior under resize, zoom, scrolling, and document-height changes.
+- Expected CSS-pixel/percentage and stretch behavior under resize, zoom, scrolling, and document-height changes. Verify 1 CSS pixel strokes and guide positions against known page dimensions at multiple browser zoom levels.
 - Overlay rendering does not alter layout or document dimensions.
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected.
 - Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh restores the saved configuration with empty undo/redo histories. Verify platform shortcuts and focus behavior against text editing and the host page.

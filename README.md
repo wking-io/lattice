@@ -6,7 +6,7 @@ Lattice is in planning. This repository contains the product plan and agent guid
 
 ## Planned capabilities
 
-- 1px overlays with bright preset colors and custom colors.
+- 1 CSS pixel overlays with bright preset colors and custom colors.
 - Figma-style column and row grids, plus draggable pixel or percentage guides.
 - Reusable presets that can be combined, unlinked, and explicitly updated.
 - A floating panel and separate shortcuts for panel and grid visibility.
