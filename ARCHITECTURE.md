@@ -17,7 +17,7 @@ Sources: [Foldkit manifest](https://github.com/foldkit/foldkit/blob/main/package
 
 ## Proposed state ownership
 
-Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, preset library, viewing preferences, page measurements, transient interaction state, and undo/redo history. The host website does not need to use Foldkit or Effect.
+Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, a loaded projection of the preset catalog, viewing preferences, page measurements, transient interaction state, and undo/redo history. The repository file is authoritative for project preset definitions. The host website does not need to use Foldkit or Effect.
 
 All edits enter the same update flow. Keep domain rules in pure functions called by update; do not introduce another mutable grid store that must be synchronized with Foldkit.
 
@@ -32,6 +32,11 @@ flowchart LR
   Geometry --> View[Overlay view]
   Update --> Commands[Effect commands]
   Commands --> Storage[Browser storage]
+  Commands --> Server[Local Vite preset operations]
+  Server --> File[Repository preset configuration]
+  File --> Watcher[File watcher and catalog events]
+  Watcher --> Update
+  Server --> Update
   Commands --> Update
   Model --> Response[Context and operation results]
   Response --> Bridge
@@ -47,26 +52,52 @@ Foldkit's [architecture](https://foldkit.dev/core/architecture) provides Model, 
 | Geometry | Resolve settings against measured width and height. Return geometry with item ownership. Save source settings, not derived positions. |
 | Program | Foldkit Model and update flow; coordinate domain changes, transient interactions, and commands. |
 | Browser | Measurements, URL observation, pointer/keyboard events, and overlay rendering. Scope listeners and observers to the runtime. |
-| Persistence | Versioned configuration encoding, base/query resolution, preset storage, and recovery from storage errors. |
+| Browser persistence | Versioned applied-page configuration, base/query resolution, viewing preferences, and recovery from storage errors. |
+| Preset repository | Server-side project preset loading, validation, file writes, conflict handling, and change notifications. |
 | Agent adapters | WebMCP and ordinary JavaScript calls mapped into the same domain operations and context projection. |
-| Vite adapter | Development-only injection and teardown support; no browser runtime imports from the consuming application's source. |
+| Vite adapter | Development-only injection, preset-operation middleware, file watching, catalog notifications, and teardown. No browser runtime imports from the consuming application's source. |
 
 These are internal modules in one initial package, not independently published packages.
 
 ## Preset catalog and persistence scopes
 
-Confirmed: custom presets are shared by all pages at the same local origin; applied grid configurations remain page-specific. The library also ships common built-in presets. See the proposed catalog in [PLAN.md](PLAN.md).
+Confirmed: reusable project presets live in a configuration file in the consuming repository, are loaded for everyone using that configuration, and are written by panel saves through the local development server. The first save creates the file when absent. This replaces the earlier origin-wide browser preset library. Applied grid configurations and viewing preferences remain browser-local.
+
+The six built-ins and read-only built-in behavior are confirmed; plugin configuration can exclude them. See [PLAN.md](PLAN.md) for their contents. Team members receive repository preset changes through normal Git workflows; connected pages on one development server can receive live catalog notifications.
 
 Proposed storage design:
 
-- Bundle built-in preset definitions with the development runtime. Keep them read-only and use stable catalog IDs and revisions. Do not seed mutable copies into browser storage on first launch.
-- Store user-created definitions in one versioned, origin-wide preset library. Keep this record separate from page configurations and viewing preferences. Browser origin separation includes scheme, hostname, and port; v1 does not add cross-origin sharing.
-- Present built-in and custom definitions through one catalog interface. Distinguish their source in metadata and namespace their IDs to avoid collisions. Built-in status does not introduce another kind of grid item.
-- Applying either kind creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in the page configuration. Catalog changes or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates.
+- Use `builtInPresets: boolean` (default `true`) and `presetsFile: string` (default `./lattice.presets.json`, resolved against the Vite project root). These names and the JSON format are proposed. Additional inline definitions in `vite.config.ts` are under discussion; do not assume the panel rewrites executable TypeScript configuration.
+- Load the dedicated file on the server, validate it with the shared preset schema, and send a serializable catalog to the browser. A missing file means an empty project catalog until the first successful save. An invalid or unreadable existing file is an error and must not be replaced with an empty file.
+- Keep schema version, stable preset IDs, names, and flat item definitions in the project file. Derive catalog/preset revisions from validated contents for conflict checks and explicit updates. Use deterministic formatting to keep Git diffs readable.
+- Keep built-in definitions separate from project file data. When disabled, omit them from the available catalog and served catalog definitions. Use stable namespaced IDs and source metadata for both kinds. Source does not introduce another grid-item type.
+- Applying either kind creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in browser page state. File changes, disabled built-ins, or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates. A missing source leaves its snapshot usable.
+- Namespace browser page storage by project identity as well as origin and URL to prevent collisions when unrelated local projects reuse an address. Preset definitions themselves follow the configured project file, including when the development server's port changes. Project-identity derivation remains to be specified.
 - Baseline presets use ordinary row items with automatic count and no gutter, rather than storing thousands of individual lines or introducing another item type. Derive their geometry from current document height.
-- An agent can list available catalog entries and apply them through the same operations used by the panel. Built-in versus custom presets have identical applied-grid rules, including unlinking before editing contents.
+- Agents list and mutate the catalog through Lattice's supported interface. File-backed saves use the same local-server operations as panel saves and report their actual persistence outcome.
 
-Exact catalog values, color defaults, editing/deletion of custom definitions, and undo behavior for shared-library mutations remain open. Storage transaction and cross-tab conflict handling must be specified before implementing preset mutations.
+### File loading and saving
+
+Use Vite's [development-server middleware](https://vite.dev/guide/api-plugin.html#configureserver) for narrowly scoped preset reads and mutations. Use its [custom client/server events](https://vite.dev/guide/api-plugin.html#client-server-communication) to notify connected pages that the catalog revision changed. These are proposed Lattice operations built on documented Vite hooks, not features already implemented here.
+
+Proposed save flow:
+
+1. Capture the selected page items and current page/catalog revisions; flatten included presets into copied underlying items and assign a stable preset ID.
+2. Send a validated create/update operation to the local development server with an expected catalog revision and retry identity.
+3. The server reloads and validates the current file, detects stale requests, and serializes writes to that file. Create the file only when it is absent. Write through a temporary file and replace atomically to avoid partial JSON. Coordinate multiple server processes using the same file; an atomic rename alone does not prevent concurrent edits from being overwritten.
+4. Return the saved preset and resulting revision only after the write completes. Retries use the same identity so a lost response cannot silently create duplicate presets. Preserve existing data and return a conflict/error if safe application cannot be established.
+5. Apply the saved preset to the initiating page through the ordinary update flow and persist its page configuration. If navigation or other edits invalidate the captured selection, report that the definition was saved but the page application was not performed; do not apply it to a different page.
+6. Notify connected clients and reload the catalog. Watch manual edits, creation, and deletion, including when the file was missing at startup. Keep applied snapshots intact. Invalid manual edits show an error and may retain a clearly marked last-valid catalog; writes remain blocked until the source is valid.
+
+A repository write and browser-state update are separate commits. Report saved/applied/persisted outcomes accurately and define retry/recovery behavior; do not promise an atomic transaction spanning the filesystem and browser storage. Ordinary multi-item page edits can still be atomic and occupy one undo step. Undo of the repository definition itself remains an explicit product decision.
+
+### Local write scope
+
+The server, not a browser-supplied path, chooses the configured preset file. Restrict writes to that approved project file, reject path traversal and out-of-scope symlink targets, validate operation schemas and payload sizes, and gate mutations on the allowed development origin and a per-server write token. Fail closed for unsupported remote exposure. Register no mutation endpoints in build or production preview.
+
+Implement these checks in the preset repository/middleware. Vite's [`server.fs` settings](https://vite.dev/config/server-options.html#server-fs-strict) describe file serving and do not themselves authorize or constrain custom mutation handlers. Keep Node filesystem dependencies out of browser entry points. The exact hostname/LAN policy still needs resolution before release.
+
+Open decisions: final file format/path, optional inline definitions, color defaults, editing/deleting definitions, name collisions, and undo scope for repository mutations. Implement and test stale-write detection, concurrent-server coordination, and failure recovery before enabling saves.
 
 ## Embedding and lifecycle
 
@@ -127,6 +158,7 @@ The first integration check must demonstrate both a functioning overlay during d
 2. Undo/redo keyboard ownership, history limits, and shared preset-library scope. Session-only history, reset on navigation to another configuration, and drag/batch grouping are confirmed.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.
-5. Package entry points, development-host rules, shortcuts, and focused acceptance tests.
+5. Preset configuration interface, file-write conflict/recovery semantics, and project identity for browser storage.
+6. Package entry points, development-host rules, shortcuts, and focused acceptance tests.
 
 The handoff is not implementation-ready until the relevant open decisions here and in PLAN.md are resolved or explicitly delegated as implementation choices.

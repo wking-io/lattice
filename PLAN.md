@@ -63,22 +63,24 @@ CSS pixels are confirmed for coordinates and line thickness, so guides scale vis
 - Lines are 1 CSS pixel thick, including when browser zoom changes. Their apparent screen thickness scales with the page; do not compensate to maintain a constant device-pixel hairline.
 - Provide bright preset colors and a custom-color option.
 - Supply common built-in grid presets and support user-created presets.
-- Exact palettes and built-in preset contents remain to be selected.
+- The six built-in presets below are selected. Exact palettes and opacity defaults remain open.
 
 ### Presets
 
 Presets can contain any number of column, row, and individual items. They remain one level deep: including an existing preset when saving a new preset copies its underlying items rather than nesting a preset reference.
 
-Custom presets are shared across all pages on the same local origin (scheme, hostname, and port), while applied grids remain specific to each page configuration. A preset saved on `/about` is available on `/pricing` at the same origin. Different ports or hostnames have separate libraries in v1.
+Custom presets are project-owned configuration stored in a file in the consuming repository. People can define presets in that configuration, and the plugin loads them for every page and developer using that project configuration. This replaces the earlier browser-storage-only preset-library design. Applied page grids and viewing preferences remain browser-local.
 
-Ship a built-in library of common web layout grids alongside user-created presets. The proposed initial catalog below still needs review; including presets does not decide whether any grid is automatically applied on a new page.
+Ship the six built-in presets below alongside project presets. Include a plugin configuration value to omit the built-ins. They are read-only definitions that users can apply, unlink, customize, and save as project presets. Including presets does not decide whether any grid is automatically applied on a new page.
+
+Saving a preset from the panel writes the new definition into the project's preset configuration file through the local development server. Create the file on the first save if it does not exist. Manual configuration and panel-created presets load through the same catalog. Changes become available to other working copies through the team's normal Git workflow; this does not add a cloud synchronization system.
 
 Saving a preset:
 
 1. Open a save dialog with a name field and item checklist.
 2. Check all current items by default; allow the user to uncheck items.
-3. Save the selected configuration as a reusable preset.
-4. Replace the selected page items with one applied preset, preserving their appearance. Unselected items remain separate.
+3. Save the selected configuration as a reusable preset in the repository file, creating that file if needed.
+4. After the server confirms the save, replace the selected page items with one applied preset, preserving their appearance. Unselected items remain separate. Surface file-save failures without reporting a successful save or silently substituting browser-only storage.
 
 An applied preset retains the version it was created from. Editing a saved preset does not automatically modify existing applications. Provide an explicit **Update from preset** action.
 
@@ -120,7 +122,7 @@ Proposed keyboard ownership: consume these shortcuts only when Lattice has focus
 
 ### Persistence and URLs
 
-Save configurations in browser storage so refresh does not lose the page's grids.
+Save applied page configurations in browser storage so refresh does not lose the page's grids. Reusable project preset definitions are stored in the repository file; they are not authoritative browser-storage records.
 
 Query parameters are ignored initially: a query URL inherits an existing configuration for its base path. When that inherited configuration is edited on a query URL, create a fully independent copy for that query URL. Future base-path edits do not flow into that copy.
 
@@ -162,13 +164,13 @@ These suggestions were discussed but were not individually finalized:
 - Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
 - Preserve the unit when dragging an individual percentage guide. Preserve saved guides that move off-screen after resize.
 - Retain fractional positions in generated geometry and percentage guides. Allow fractional values through precise numeric entry; this input behavior remains to be confirmed separately from whole-pixel dragging.
-- Store page configurations by origin and path with the agreed query-override behavior. Custom presets are confirmed to be shared within an origin; automatic cross-origin or cross-port sharing is outside v1.
+- Store page configurations by origin and path with the agreed query-override behavior. Scope browser state to the consuming project as well so unrelated projects reusing a local address do not inherit each other's grids. Project presets load from the configured repository file regardless of which local port serves that project.
 - Keep the agent API available while the panel or grid lines are hidden.
 - Treat grouped multi-item agent edits as one undoable change. Proposed details: apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
 
-## Proposed built-in presets
+## Built-in presets
 
-Provide a compact catalog using the same preset/item schemas as custom presets. These values are proposed Lattice defaults inspired by established patterns, not exact reproductions of another framework's complete responsive layout.
+The following six presets are confirmed. They use the same preset/item schemas as project presets. These are Lattice defaults inspired by established patterns, not exact reproductions of another framework's complete responsive layout.
 
 | Preset | Underlying items | Gutter | Outer margin |
 | --- | --- | --- | --- |
@@ -183,7 +185,21 @@ All values use CSS pixels. Baseline presets produce horizontal guides at 4px or 
 
 Basis for the starter set: [Material's web grid](https://m2.material.io/develop/web/supporting/layout-grid) uses 4, 8, and 12 columns; [Bootstrap's grid](https://getbootstrap.com/docs/5.2/layout/grid/) uses 12 columns with a 1.5rem default gutter; [Carbon's 2x Grid](https://www.carbondesignsystem.com/building-blocks/foundations/2x-grid/overview) includes 16-column layouts and an 8px base unit. Material also documents [4-unit typographic baselines and 8-unit layout spacing](https://m2.material.io/design/layout/understanding-layout.html). Lattice's CSS-pixel gutters and margins are design choices, not a promise of exact framework alignment.
 
-Propose making built-ins read-only. Users customize an application by unlinking its items and may save the result as a custom preset. Built-ins remain available after clearing custom presets. Exact colors, opacity, catalog contents, and first-load application remain open.
+Built-ins are read-only. Users customize an application by unlinking its items and may save the result as a project preset. Built-ins remain available independently of project presets unless disabled in plugin configuration. Exact colors, opacity, and first-load application remain open.
+
+## Proposed preset configuration interface
+
+Use a dedicated `lattice.presets.json` file in the consuming project's root as the shared preset configuration, with a configurable path. People can edit it directly, and the panel can update it without rewriting executable configuration. The exact filename, format, and option names below are proposed; support for an additional inline preset array in `vite.config.ts` is under discussion.
+
+```ts
+// Proposed Vite plugin options; the runtime is not implemented yet.
+lattice({
+  builtInPresets: false, // Defaults to true.
+  presetsFile: './lattice.presets.json', // Default location; created on first save.
+})
+```
+
+Propose watching the file and updating the catalog in connected pages when it changes. Existing applied snapshots remain unchanged until explicitly updated, even when a preset file changes or built-ins are disabled.
 
 ## Remaining decisions
 
@@ -195,12 +211,12 @@ Resolve these before the implementation slice that depends on them:
 | Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
 | Geometry | Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom expectations. Coordinates and strokes use CSS pixels; pixel-based individual drags snap to whole CSS pixels. |
-| Preset inventory | Review the proposed six built-in grids, gutters/margins, read-only catalog behavior, bright palette, and color/opacity scope. |
+| Preset inventory | Six built-ins and the option to omit them are confirmed. Decide bright palette and color/opacity scope. |
 | Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/shared-preset scope. History is session-only and resets when navigation loads another page's configuration. |
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
 | Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
 | URL identity | Query parameter ordering, hashes, query creation with no base state, and optional custom key handling. |
-| Preset lifecycle | Editing/deleting a saved preset, name collisions, and update behavior after its source is removed. |
+| Preset lifecycle | Repository file format/path, inline configuration support, editing/deleting saved definitions, name collisions, undo scope, conflict handling, and update behavior after a source is removed. |
 | Agent contract | Final tool/API schemas, add-versus-replace defaults, batch results, and the first verified browser/agent combination. |
 
 ## Backlog
@@ -210,7 +226,7 @@ Resolve these before the implementation slice that depends on them:
 - Converting generated column/row boundaries into individual guides, only if a real workflow calls for it.
 - Snapping guides to page elements.
 - Touch-specific editing.
-- Cross-device or team synchronization.
+- Live cross-device or team synchronization beyond sharing preset files through Git.
 - Nested presets, only if independent copies prove insufficient.
 
 ## Implementation sequence
@@ -219,7 +235,7 @@ Resolve these before the implementation slice that depends on them:
 2. **First usable slice.** Define item identity and state operations; render a column item and an individual guide; connect them to a basic floating panel and documented read API.
 3. **Geometry and persistence.** Add complete row/column settings, individual units, zoom/document-size updates, browser storage, base/query inheritance, and reset behavior.
 4. **Editing and visibility.** Add dragging, duplication, naming, item controls, panel/grid shortcuts, click-through interaction, and the three-state visibility model.
-5. **Preset lifecycle.** Add built-in presets, selective save-and-apply, flattening existing presets into copied items, unlinking, and explicit updates.
+5. **Preset lifecycle.** Add configurable built-ins, repository configuration loading and watched updates, local-server writes with first-save file creation, selective save-and-apply, flattening, unlinking, and explicit updates. Verify file conflicts and save failures before enabling writes.
 6. **Agent integration.** Add shared edit operations, WebMCP registration, context export, and skill setup. Validate the example grid-creation workflow from an actual agent connection.
 7. **Release preparation.** Complete installation documentation and the supported-environment matrix, verify production exclusion, and finalize package metadata and license before publishing.
 
@@ -233,7 +249,9 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected. Pixel-based individual drags and duplicates snap to whole CSS pixels without introducing blanket rounding of generated geometry.
 - Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh and navigation to another page's configuration restore saved grids with empty undo/redo histories, including when returning to a previous page. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
-- A custom preset saved on one page is available on another page of the same origin, while their applied grids remain independent. Built-in catalog entries are available without saved user data.
+- A preset saved from the panel is written to the repository file and is available throughout that project; a missing file is created on first save. Manually defined presets load through the same catalog. Page grids remain independent in browser storage.
+- Disabling built-ins removes them from the available catalog while preserving applied snapshots. Catalog file changes do not silently update applied grids.
+- Invalid files, permission failures, and stale-write conflicts preserve the existing file and report failure. Retrying an uncertain save does not create duplicate presets. Preset write handlers and catalog data are absent from production output and preview.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.
 - Panel/grid visibility transitions obey the agreed state model; hidden panels leave no visible control; click-through works on the page underneath.
 - Panel, JavaScript API, and WebMCP produce equivalent state changes. Verify agent reads and edits against the same live page.
