@@ -17,7 +17,7 @@ Sources: [Foldkit manifest](https://github.com/foldkit/foldkit/blob/main/package
 
 ## Proposed state ownership
 
-Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, preset library, viewing preferences, page measurements, and transient interaction state. The host website does not need to use Foldkit or Effect.
+Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, preset library, viewing preferences, page measurements, transient interaction state, and undo/redo history. The host website does not need to use Foldkit or Effect.
 
 All edits enter the same update flow. Keep domain rules in pure functions called by update; do not introduce another mutable grid store that must be synchronized with Foldkit.
 
@@ -69,6 +69,19 @@ Typed ports can bridge external requests into the embedded program. Project a do
 
 Foldkit's [DevTools MCP](https://foldkit.dev/core/devtools) is useful for developing Lattice, but it is a separate integration from the requested WebMCP interface. Propose disabling Foldkit's debugging overlay and recording by default in consumer projects, so Lattice does not introduce another launcher or an unbounded pointer-event history.
 
+## Undo and redo
+
+Confirmed for v1: undo/redo with standard keyboard shortcuts, one completed drag per history step, and one grouped agent edit per step. The platform bindings are recorded in [PLAN.md](PLAN.md).
+
+Proposed implementation:
+
+- Keep history in the Foldkit Model and apply undo/redo through the same update flow as other edits. Foldkit DevTools history is not the product's undo mechanism.
+- Record committed domain changes, preserving stable IDs. Keep pointer previews separate from committed configuration; commit once when the drag finishes. A canceled drag restores its starting state without creating a history entry.
+- Treat a grouped agent edit as one validated, atomic transaction. Invalid groups and no-op edits do not add history. A new committed edit after undo clears the redo branch.
+- Undo/redo changes source settings and recalculates geometry using current page dimensions. Persist the resulting configuration through the normal persistence path.
+- Gate keyboard handling on focus within Lattice, including a focused individual guide. Leave text-editing controls and host-page shortcuts alone. Account for shadow-root event paths when identifying the actual focused control.
+- Recommend session-only history initially: saved configurations survive refresh; undo history does not. History limits, navigation behavior, and shared preset-library changes remain open.
+
 ## Development-only delivery
 
 Use a Lattice Vite plugin restricted to development serving, with a development-only client entry. Vite supports conditional plugin application through [`apply`](https://vite.dev/guide/api-plugin.html#conditional-application). Confirm preview and host-access behavior before release; a development command alone does not establish that a page is local.
@@ -79,7 +92,7 @@ The first integration check must demonstrate both a functioning overlay during d
 
 ## Next decisions
 
-1. Undo/redo scope and transaction rules: propose one completed drag or agent batch per undo step; transient pointer motion stays out of persisted configuration.
+1. Undo/redo history lifetime, keyboard ownership, navigation behavior, and shared preset-library scope. Undo/redo and drag/batch grouping are confirmed.
 2. Coordinate conventions, renderer, and long-document behavior.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.

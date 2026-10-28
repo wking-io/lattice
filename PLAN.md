@@ -95,6 +95,19 @@ Hiding all grids always hides the panel. Showing grids again restores the panel'
 
 Support visibility for individual items. Include a modifier paired with clicking that lets the user ignore visible grid lines and interact with the underlying page. The exact shortcuts and modifier are not selected yet.
 
+### Undo and redo
+
+Include undo/redo in v1 using standard keyboard shortcuts. One completed drag is one undo step; a grouped agent edit is also one step.
+
+Use these default bindings:
+
+| Platform | Undo | Redo |
+| --- | --- | --- |
+| macOS | Command+Z | Command+Shift+Z |
+| Windows/Linux | Control+Z | Control+Shift+Z or Control+Y |
+
+Proposed keyboard ownership: consume these shortcuts only when Lattice has focus, excluding text-editing controls. Text fields retain their editing history, and the host page retains its shortcuts outside Lattice. History lifetime, navigation behavior, and treatment of shared preset-library changes still need a decision.
+
 ### Persistence and URLs
 
 Save configurations in browser storage so refresh does not lose the page's grids.
@@ -136,11 +149,11 @@ These suggestions were discussed but were not individually finalized:
 - Use CSS pixels for coordinates and strokes, with browser content width excluding the scrollbar. Resolve vertical percentages against that width and horizontal percentages against document height; use left/top origins.
 - Recalculate when zoom, viewport dimensions, or document content size changes. A horizontal percentage guide or stretch row can move when content expands. The overlay must not increase the document dimensions it measures.
 - Draw both boundaries of columns and rows with transparent interiors. Avoid visually thickening coincident boundaries.
-- Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, duplication, and undo/redo.
+- Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
 - Preserve the unit when dragging an individual percentage guide. Preserve saved guides that move off-screen after resize.
 - Store configurations by origin and path, and make user presets reusable across that origin. Decide whether local host/port changes should be handled specially.
 - Keep the agent API available while the panel or grid lines are hidden.
-- Support atomic multi-item edits as one undoable change, followed by reading the resulting state. Default agent additions to preserving existing items unless replacement is requested; this default still needs confirmation.
+- Treat grouped multi-item agent edits as one undoable change. Proposed details: apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
 
 ## Remaining decisions
 
@@ -153,8 +166,8 @@ Resolve these before the implementation slice that depends on them:
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
 | Geometry | CSS-pixel versus device-pixel strokes, origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. |
 | Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
-| Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo/redo scope. |
-| Shortcuts | Exact keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
+| Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history lifetime/shared-preset scope. |
+| Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
 | Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
 | URL identity | Query parameter ordering, hashes, query creation with no base state, and optional custom key handling. |
 | Preset lifecycle | Editing/deleting a saved preset, name collisions, and update behavior after its source is removed. |
@@ -188,6 +201,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Expected pixel/percentage and stretch behavior under resize, zoom, scrolling, and document-height changes.
 - Overlay rendering does not alter layout or document dimensions.
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected.
+- Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.
 - Panel/grid visibility transitions obey the agreed state model; hidden panels leave no visible control; click-through works on the page underneath.
