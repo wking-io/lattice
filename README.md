@@ -19,7 +19,8 @@ The guides are visual overlays and do not change the page's layout.
 ## Project documents
 
 - [Plan and open decisions](PLAN.md)
+- [Architecture discussion](ARCHITECTURE.md)
 - [Compact agent skill](skills/lattice/SKILL.md)
 - [Agent integration guidance](agent-integration.md)
 
-Package naming, the initial development integration, and licensing are still open decisions. No package has been published.
+Vite is the first development integration, with Effect v4 and Foldkit as the planned stack. Package naming and licensing are still open decisions. No package has been published.

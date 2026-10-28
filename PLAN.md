@@ -13,6 +13,10 @@ The library must contribute no JavaScript or CSS to deployed production bundles.
 
 ## Confirmed v1 decisions
 
+### Development integration
+
+Vite is the first installation target. Effect v4 and Foldkit are the requested implementation stack; the upstream manifests support this combination. [Architecture discussion](ARCHITECTURE.md) records the proposed design, compatibility evidence, and remaining technical decisions.
+
 ### Items and ownership
 
 Every rendered line belongs to a preset, column, row, or individual item. A page can contain any number of these items.
@@ -145,7 +149,7 @@ Resolve these before the implementation slice that depends on them:
 | Area | Decision |
 | --- | --- |
 | Packaging | Published package name and license. Lattice and the public `wking-io/lattice` repository are confirmed; npm name availability has not been checked. |
-| Installation | Initial framework/build-tool targets, supported browsers, and the mechanism that guarantees zero production bundle footprint. |
+| Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
 | Geometry | CSS-pixel versus device-pixel strokes, origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. |
 | Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
@@ -168,7 +172,7 @@ Resolve these before the implementation slice that depends on them:
 
 ## Implementation sequence
 
-1. **Repository and integration foundation.** Start the public Lattice repository with this plan and agent guidance, then select the first development integration. Prove that an empty integration contributes nothing to a production build before adding the full overlay.
+1. **Repository and integration foundation.** The public repository and initial Vite target are selected. Verify the Effect/Foldkit embedding and prove that an empty development integration contributes nothing to a production build before adding the full overlay.
 2. **First usable slice.** Define item identity and state operations; render a column item and an individual guide; connect them to a basic floating panel and documented read API.
 3. **Geometry and persistence.** Add complete row/column settings, individual units, zoom/document-size updates, browser storage, base/query inheritance, and reset behavior.
 4. **Editing and visibility.** Add dragging, duplication, naming, item controls, panel/grid shortcuts, click-through interaction, and the three-state visibility model.
@@ -193,6 +197,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 
 ## Current artifacts
 
+- [Architecture discussion](ARCHITECTURE.md): selected technology direction and proposed design; discussion in progress.
 - [Compact agent skill](skills/lattice/SKILL.md): drafted and format-checked.
 - [Agent setup guidance](agent-integration.md): drafted.
 - This plan: conversation decisions consolidated; implementation has not started.
