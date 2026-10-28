@@ -73,6 +73,8 @@ Foldkit's [DevTools MCP](https://foldkit.dev/core/devtools) is useful for develo
 
 Confirmed for v1: undo/redo with standard keyboard shortcuts, one completed drag per history step, and one grouped agent edit per step. The platform bindings are recorded in [PLAN.md](PLAN.md).
 
+History is session-only: keep undo/redo data in memory, exclude it from persisted schemas, and initialize both histories empty on a fresh page load. Saved grid configurations survive refresh or reopening the page; their history does not. History behavior during same-document navigation remains open.
+
 Proposed implementation:
 
 - Keep history in the Foldkit Model and apply undo/redo through the same update flow as other edits. Foldkit DevTools history is not the product's undo mechanism.
@@ -80,7 +82,7 @@ Proposed implementation:
 - Treat a grouped agent edit as one validated, atomic transaction. Invalid groups and no-op edits do not add history. A new committed edit after undo clears the redo branch.
 - Undo/redo changes source settings and recalculates geometry using current page dimensions. Persist the resulting configuration through the normal persistence path.
 - Gate keyboard handling on focus within Lattice, including a focused individual guide. Leave text-editing controls and host-page shortcuts alone. Account for shadow-root event paths when identifying the actual focused control.
-- Recommend session-only history initially: saved configurations survive refresh; undo history does not. History limits, navigation behavior, and shared preset-library changes remain open.
+- History limits, same-document navigation behavior, and shared preset-library changes remain open.
 
 ## Development-only delivery
 
@@ -92,8 +94,8 @@ The first integration check must demonstrate both a functioning overlay during d
 
 ## Next decisions
 
-1. Undo/redo history lifetime, keyboard ownership, navigation behavior, and shared preset-library scope. Undo/redo and drag/batch grouping are confirmed.
-2. Coordinate conventions, renderer, and long-document behavior.
+1. Coordinate conventions, renderer, and long-document behavior.
+2. Undo/redo keyboard ownership, history limits, same-document navigation behavior, and shared preset-library scope. Session-only history and drag/batch grouping are confirmed.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.
 5. Package entry points, development-host rules, shortcuts, and focused acceptance tests.

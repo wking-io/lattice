@@ -99,6 +99,8 @@ Support visibility for individual items. Include a modifier paired with clicking
 
 Include undo/redo in v1 using standard keyboard shortcuts. One completed drag is one undo step; a grouped agent edit is also one step.
 
+Undo/redo history is session-only. Refreshing or reopening the page restores the saved grid configuration with empty undo and redo histories. Do not persist history in browser storage.
+
 Use these default bindings:
 
 | Platform | Undo | Redo |
@@ -106,7 +108,7 @@ Use these default bindings:
 | macOS | Command+Z | Command+Shift+Z |
 | Windows/Linux | Control+Z | Control+Shift+Z or Control+Y |
 
-Proposed keyboard ownership: consume these shortcuts only when Lattice has focus, excluding text-editing controls. Text fields retain their editing history, and the host page retains its shortcuts outside Lattice. History lifetime, navigation behavior, and treatment of shared preset-library changes still need a decision.
+Proposed keyboard ownership: consume these shortcuts only when Lattice has focus, excluding text-editing controls. Text fields retain their editing history, and the host page retains its shortcuts outside Lattice. Same-document navigation behavior and treatment of shared preset-library changes still need a decision.
 
 ### Persistence and URLs
 
@@ -166,7 +168,7 @@ Resolve these before the implementation slice that depends on them:
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
 | Geometry | CSS-pixel versus device-pixel strokes, origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. |
 | Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
-| Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history lifetime/shared-preset scope. |
+| Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/navigation/shared-preset scope. History is session-only. |
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
 | Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
 | URL identity | Query parameter ordering, hashes, query creation with no base state, and optional custom key handling. |
@@ -201,7 +203,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Expected pixel/percentage and stretch behavior under resize, zoom, scrolling, and document-height changes.
 - Overlay rendering does not alter layout or document dimensions.
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected.
-- Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Verify platform shortcuts and focus behavior against text editing and the host page.
+- Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh restores the saved configuration with empty undo/redo histories. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.
 - Panel/grid visibility transitions obey the agreed state model; hidden panels leave no visible control; click-through works on the page underneath.
