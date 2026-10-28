@@ -32,6 +32,8 @@ Items support editable names with automatic defaults. Agent context includes nam
 
 Only individual guides can be dragged. Option/Alt-drag duplicates an individual guide. Dragging does not automatically unlink a preset or convert a column or row item into individual guides. Such conversion is outside v1 and should be revisited only if actual usage calls for it.
 
+Dragging an individual pixel-based guide snaps its position to the nearest whole CSS pixel. The same rule applies to an Option/Alt-dragged pixel-based duplicate. This is a drag rule, not a requirement to round generated column/row geometry or percentage positions.
+
 ### Column and row settings
 
 Match the relevant Figma layout-guide settings:
@@ -54,7 +56,7 @@ The supported combinations and automatic-count behavior must be checked against 
 - There are no breakpoint-specific configurations or automatic switches between desktop/mobile presets in v1.
 - Preserve the configured values on resize. Stretch grids and percentage guides still resolve against their current dimensions; fixed pixel values remain fixed in their coordinate system.
 
-CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Origins, scrollbar treatment, fractional positions, and pinch-zoom behavior remain open.
+CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Pixel-based individual drags snap to whole CSS pixels. Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom behavior remain open.
 
 ### Appearance
 
@@ -153,6 +155,7 @@ These suggestions were discussed but were not individually finalized:
 - Draw both boundaries of columns and rows with transparent interiors. Avoid visually thickening coincident boundaries.
 - Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
 - Preserve the unit when dragging an individual percentage guide. Preserve saved guides that move off-screen after resize.
+- Retain fractional positions in generated geometry and percentage guides. Allow fractional values through precise numeric entry; this input behavior remains to be confirmed separately from whole-pixel dragging.
 - Store configurations by origin and path, and make user presets reusable across that origin. Decide whether local host/port changes should be handled specially.
 - Keep the agent API available while the panel or grid lines are hidden.
 - Treat grouped multi-item agent edits as one undoable change. Proposed details: apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
@@ -166,7 +169,7 @@ Resolve these before the implementation slice that depends on them:
 | Packaging | Published package name and license. Lattice and the public `wking-io/lattice` repository are confirmed; npm name availability has not been checked. |
 | Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
-| Geometry | Origins, scrollbar treatment, fractional positions, and pinch-zoom expectations. Coordinates and strokes use CSS pixels. |
+| Geometry | Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom expectations. Coordinates and strokes use CSS pixels; pixel-based individual drags snap to whole CSS pixels. |
 | Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
 | Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/navigation/shared-preset scope. History is session-only. |
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
@@ -202,7 +205,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Correct column/row geometry for supported alignments, count modes, gutters, margins, and offsets.
 - Expected CSS-pixel/percentage and stretch behavior under resize, zoom, scrolling, and document-height changes. Verify 1 CSS pixel strokes and guide positions against known page dimensions at multiple browser zoom levels.
 - Overlay rendering does not alter layout or document dimensions.
-- Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected.
+- Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected. Pixel-based individual drags and duplicates snap to whole CSS pixels without introducing blanket rounding of generated geometry.
 - Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh restores the saved configuration with empty undo/redo histories. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.

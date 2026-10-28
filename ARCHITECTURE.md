@@ -67,7 +67,9 @@ Confirmed: all pixel-based coordinates and grid dimensions use CSS pixels. Every
 
 Keep source values in their original units. Browser zoom must not rewrite a stored pixel position, gutter, or margin. Recompute stretch geometry and percentage positions against current CSS-pixel dimensions when those dimensions change.
 
-Proposed renderer rule: perform measurements and geometry calculations in the same CSS coordinate system without multiplying logical positions by device pixel ratio. If a raster renderer needs a higher-resolution backing surface, keep that conversion internal to rendering. Origins, scrollbar treatment, rounding/drag precision, renderer choice, and pinch-zoom behavior remain open.
+Confirmed drag precision: individual guides stored in pixels snap to the nearest whole CSS pixel when dragged, including Option/Alt duplication. Apply snapping to the resulting guide position after coordinate conversion and drag-offset calculation. Do not round source configurations merely because they were loaded, or apply this drag rule to generated grids and percentage guides.
+
+Proposed renderer rule: perform measurements and geometry calculations in the same CSS coordinate system without multiplying logical positions by device pixel ratio. If a raster renderer needs a higher-resolution backing surface, keep that conversion internal to rendering. Preserve fractional generated geometry and percentage positions. Origins, scrollbar treatment, numeric-entry precision, renderer choice, and pinch-zoom behavior remain open.
 
 ## Agent interface
 
@@ -102,7 +104,7 @@ The first integration check must demonstrate both a functioning overlay during d
 
 ## Next decisions
 
-1. Coordinate origins, scrollbar treatment, rounding/drag precision, renderer, and long-document behavior. CSS-pixel coordinates and 1 CSS pixel strokes are confirmed.
+1. Coordinate origins, scrollbar treatment, numeric-entry precision, renderer, and long-document behavior. CSS-pixel coordinates, 1 CSS pixel strokes, and whole-pixel individual dragging are confirmed.
 2. Undo/redo keyboard ownership, history limits, same-document navigation behavior, and shared preset-library scope. Session-only history and drag/batch grouping are confirmed.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.
