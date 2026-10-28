@@ -8,7 +8,7 @@ Lattice is in planning. This repository contains the product plan and agent guid
 
 - 1 CSS pixel overlays with bright preset colors and custom colors.
 - Figma-style column and row grids, plus draggable pixel or percentage guides.
-- Optional built-in presets and shared project presets defined in a repository file, including presets saved from the panel.
+- Optional built-in presets, read-only inline Vite presets, and shared JSON presets that can be saved from the panel.
 - Applied presets that can be combined, unlinked, and explicitly updated.
 - A floating panel and separate shortcuts for panel and grid visibility.
 - Browser storage that remembers grids by URL.

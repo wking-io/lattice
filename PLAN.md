@@ -69,7 +69,7 @@ CSS pixels are confirmed for coordinates and line thickness, so guides scale vis
 
 Presets can contain any number of column, row, and individual items. They remain one level deep: including an existing preset when saving a new preset copies its underlying items rather than nesting a preset reference.
 
-Custom presets are project-owned configuration stored in a file in the consuming repository. People can define presets in that configuration, and the plugin loads them for every page and developer using that project configuration. This replaces the earlier browser-storage-only preset-library design. Applied page grids and viewing preferences remain browser-local.
+Custom presets are project-owned configuration in the consuming repository. Support both inline definitions in `vite.config.ts` and definitions in a shared `lattice.presets.json` file. The plugin loads both for every page and developer using that project configuration. Inline definitions are read-only in the panel; panel saves write to the JSON file. This replaces the earlier browser-storage-only preset-library design. Applied page grids and viewing preferences remain browser-local.
 
 Ship the six built-in presets below alongside project presets. Include a plugin configuration value to omit the built-ins. They are read-only definitions that users can apply, unlink, customize, and save as project presets. Including presets does not decide whether any grid is automatically applied on a new page.
 
@@ -187,19 +187,22 @@ Basis for the starter set: [Material's web grid](https://m2.material.io/develop/
 
 Built-ins are read-only. Users customize an application by unlinking its items and may save the result as a project preset. Built-ins remain available independently of project presets unless disabled in plugin configuration. Exact colors, opacity, and first-load application remain open.
 
-## Proposed preset configuration interface
+## Preset configuration interface
 
-Use a dedicated `lattice.presets.json` file in the consuming project's root as the shared preset configuration, with a configurable path. People can edit it directly, and the panel can update it without rewriting executable configuration. The exact filename, format, and option names below are proposed; support for an additional inline preset array in `vite.config.ts` is under discussion.
+Support a dedicated `lattice.presets.json` file and an inline preset array in the Vite plugin options. People can edit either configuration directly. The panel writes only to the JSON file, creating it on the first save; it does not rewrite `vite.config.ts`. The default file is in the consuming project's root, with a configurable path. Source choices and read-only behavior are confirmed; exact option names and preset schemas remain proposed.
 
 ```ts
 // Proposed Vite plugin options; the runtime is not implemented yet.
 lattice({
   builtInPresets: false, // Defaults to true.
   presetsFile: './lattice.presets.json', // Default location; created on first save.
+  presets: [/* Inline preset definitions; read-only in the panel. */],
 })
 ```
 
-Propose watching the file and updating the catalog in connected pages when it changes. Existing applied snapshots remain unchanged until explicitly updated, even when a preset file changes or built-ins are disabled.
+Present enabled built-ins, inline presets, and file presets together in the catalog. Inline presets remain available when built-ins are disabled. To customize an applied inline preset, unlink it, edit its underlying items, and save a new file preset. Keep source identity distinct so one source cannot silently overwrite another.
+
+Propose watching the JSON file and updating the catalog in connected pages when it changes. Reload inline definitions when the plugin configuration reloads. Existing applied snapshots remain unchanged until explicitly updated, even when a definition changes or built-ins are disabled.
 
 ## Remaining decisions
 
@@ -216,7 +219,7 @@ Resolve these before the implementation slice that depends on them:
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
 | Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
 | URL identity | Query parameter ordering, hashes, query creation with no base state, and optional custom key handling. |
-| Preset lifecycle | Repository file format/path, inline configuration support, editing/deleting saved definitions, name collisions, undo scope, conflict handling, and update behavior after a source is removed. |
+| Preset lifecycle | JSON schema and path resolution, editing/deleting saved file definitions, name collisions, undo scope, conflict handling, and update behavior after a source is removed. Inline definitions are supported and read-only in the panel. |
 | Agent contract | Final tool/API schemas, add-versus-replace defaults, batch results, and the first verified browser/agent combination. |
 
 ## Backlog
@@ -249,7 +252,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected. Pixel-based individual drags and duplicates snap to whole CSS pixels without introducing blanket rounding of generated geometry.
 - Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh and navigation to another page's configuration restore saved grids with empty undo/redo histories, including when returning to a previous page. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
-- A preset saved from the panel is written to the repository file and is available throughout that project; a missing file is created on first save. Manually defined presets load through the same catalog. Page grids remain independent in browser storage.
+- A preset saved from the panel is written to the JSON file and is available throughout that project; a missing file is created on first save. Inline and file definitions load through the same catalog. Panel and agent mutations cannot change inline definitions or rewrite executable configuration. Page grids remain independent in browser storage.
 - Disabling built-ins removes them from the available catalog while preserving applied snapshots. Catalog file changes do not silently update applied grids.
 - Invalid files, permission failures, and stale-write conflicts preserve the existing file and report failure. Retrying an uncertain save does not create duplicate presets. Preset write handlers and catalog data are absent from production output and preview.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.

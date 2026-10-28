@@ -17,7 +17,7 @@ Sources: [Foldkit manifest](https://github.com/foldkit/foldkit/blob/main/package
 
 ## Proposed state ownership
 
-Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, a loaded projection of the preset catalog, viewing preferences, page measurements, transient interaction state, and undo/redo history. The repository file is authoritative for project preset definitions. The host website does not need to use Foldkit or Effect.
+Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, a loaded projection of the preset catalog, viewing preferences, page measurements, transient interaction state, and undo/redo history. Each project preset's source configuration is authoritative: inline Vite options or the shared JSON file. The host website does not need to use Foldkit or Effect.
 
 All edits enter the same update flow. Keep domain rules in pure functions called by update; do not introduce another mutable grid store that must be synchronized with Foldkit.
 
@@ -61,17 +61,20 @@ These are internal modules in one initial package, not independently published p
 
 ## Preset catalog and persistence scopes
 
-Confirmed: reusable project presets live in a configuration file in the consuming repository, are loaded for everyone using that configuration, and are written by panel saves through the local development server. The first save creates the file when absent. This replaces the earlier origin-wide browser preset library. Applied grid configurations and viewing preferences remain browser-local.
+Confirmed: reusable project presets come from inline Vite plugin configuration and a shared `lattice.presets.json` file in the consuming repository. Inline definitions are read-only in the panel; panel saves write the JSON file through the local development server and create it on the first save if absent. Both sources load for everyone using that project configuration. This replaces the earlier origin-wide browser preset library. Applied grid configurations and viewing preferences remain browser-local.
 
 The six built-ins and read-only built-in behavior are confirmed; plugin configuration can exclude them. See [PLAN.md](PLAN.md) for their contents. Team members receive repository preset changes through normal Git workflows; connected pages on one development server can receive live catalog notifications.
 
 Proposed storage design:
 
-- Use `builtInPresets: boolean` (default `true`) and `presetsFile: string` (default `./lattice.presets.json`, resolved against the Vite project root). These names and the JSON format are proposed. Additional inline definitions in `vite.config.ts` are under discussion; do not assume the panel rewrites executable TypeScript configuration.
+- Use `builtInPresets: boolean` (default `true`), `presetsFile: string` (default `./lattice.presets.json`, resolved against the Vite project root), and `presets: readonly PresetDefinition[]` (default empty). Source choices are confirmed; option names, exact schema, and path resolution are proposed.
+- Validate inline definitions when plugin configuration loads, using the same domain schema as file definitions. Normalize them to serializable data for the browser. Preserve explicit, stable IDs across configuration reloads. Never write inline definitions back into executable configuration from panel or agent operations.
 - Load the dedicated file on the server, validate it with the shared preset schema, and send a serializable catalog to the browser. A missing file means an empty project catalog until the first successful save. An invalid or unreadable existing file is an error and must not be replaced with an empty file.
 - Keep schema version, stable preset IDs, names, and flat item definitions in the project file. Derive catalog/preset revisions from validated contents for conflict checks and explicit updates. Use deterministic formatting to keep Git diffs readable.
-- Keep built-in definitions separate from project file data. When disabled, omit them from the available catalog and served catalog definitions. Use stable namespaced IDs and source metadata for both kinds. Source does not introduce another grid-item type.
-- Applying either kind creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in browser page state. File changes, disabled built-ins, or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates. A missing source leaves its snapshot usable.
+- Combine three sources through one catalog interface: built-in, inline configuration, and JSON file. Distinguish their source and edit capability in panel/agent metadata. Namespace stable IDs by source; reject duplicate IDs within a source rather than silently overwriting. Duplicate display names do not identify a preset.
+- Keep built-in definitions separate from project configuration. When disabled, omit them from the available catalog and served catalog definitions; inline and file presets remain. Source does not introduce another grid-item type.
+- Enforce built-in/inline read-only status in domain and server operations, not just panel controls. Customizing an applied built-in or inline preset uses unlink followed by save to a new file-backed definition. Editing or deleting an inline definition requires editing its source configuration.
+- Applying any source creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in browser page state. File/config changes, disabled built-ins, or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates. A missing source leaves its snapshot usable.
 - Namespace browser page storage by project identity as well as origin and URL to prevent collisions when unrelated local projects reuse an address. Preset definitions themselves follow the configured project file, including when the development server's port changes. Project-identity derivation remains to be specified.
 - Baseline presets use ordinary row items with automatic count and no gutter, rather than storing thousands of individual lines or introducing another item type. Derive their geometry from current document height.
 - Agents list and mutate the catalog through Lattice's supported interface. File-backed saves use the same local-server operations as panel saves and report their actual persistence outcome.
@@ -97,7 +100,7 @@ The server, not a browser-supplied path, chooses the configured preset file. Res
 
 Implement these checks in the preset repository/middleware. Vite's [`server.fs` settings](https://vite.dev/config/server-options.html#server-fs-strict) describe file serving and do not themselves authorize or constrain custom mutation handlers. Keep Node filesystem dependencies out of browser entry points. The exact hostname/LAN policy still needs resolution before release.
 
-Open decisions: final file format/path, optional inline definitions, color defaults, editing/deleting definitions, name collisions, and undo scope for repository mutations. Implement and test stale-write detection, concurrent-server coordination, and failure recovery before enabling saves.
+Open decisions: final schema and path resolution, color defaults, editing/deleting file definitions, display-name collisions, and undo scope for repository mutations. Implement and test stale-write detection, concurrent-server coordination, and failure recovery before enabling saves.
 
 ## Embedding and lifecycle
 

@@ -11,7 +11,7 @@ Prefer the target page's WebMCP tools. If unavailable through the browser connec
 - Read the current URL, storage scope, dimensions, and grid state before editing. Address items by stable ID; names may repeat.
 - Preserve unrequested items and settings. Batch related edits when supported.
 - Use library operations, not direct DOM or storage writes, so persistence and undo remain consistent.
-- Preset saves write the project's shared configuration file; verify the server acknowledged the save.
+- Preset saves write the shared JSON file; verify server acknowledgment. Built-in and inline definitions are read-only.
 - Columns use browser content width; rows use full document height. Preserve individual guides' pixel or percentage units.
 - Only individual lines move freely. Edit columns and rows through their settings. Unlink presets before editing their contents; refresh applied presets through the explicit update action.
 - Read state after editing to verify the result. Check uncertain outcomes before retrying additions.
