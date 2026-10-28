@@ -83,7 +83,9 @@ Foldkit's [DevTools MCP](https://foldkit.dev/core/devtools) is useful for develo
 
 Confirmed for v1: undo/redo with standard keyboard shortcuts, one completed drag per history step, and one grouped agent edit per step. The platform bindings are recorded in [PLAN.md](PLAN.md).
 
-History is session-only: keep undo/redo data in memory, exclude it from persisted schemas, and initialize both histories empty on a fresh page load. Saved grid configurations survive refresh or reopening the page; their history does not. History behavior during same-document navigation remains open.
+History is session-only: keep undo/redo data in memory, exclude it from persisted schemas, and initialize both histories empty on a fresh page load. Saved grid configurations survive refresh or reopening the page; their history does not.
+
+Confirmed navigation behavior: loading another page's grid configuration clears undo and redo, including client-side navigation without a refresh. Returning to a previously visited page reloads its saved configuration with empty histories; do not retain a per-page history cache.
 
 Proposed implementation:
 
@@ -92,7 +94,9 @@ Proposed implementation:
 - Treat a grouped agent edit as one validated, atomic transaction. Invalid groups and no-op edits do not add history. A new committed edit after undo clears the redo branch.
 - Undo/redo changes source settings and recalculates geometry using current page dimensions. Persist the resulting configuration through the normal persistence path.
 - Gate keyboard handling on focus within Lattice, including a focused individual guide. Leave text-editing controls and host-page shortcuts alone. Account for shadow-root event paths when identifying the actual focused control.
-- History limits, same-document navigation behavior, and shared preset-library changes remain open.
+- Reset history when navigation switches the resolved configuration scope, rather than on every URL notification. Creating a query-specific configuration through an edit is still an undoable edit, not a navigation reset.
+- Cancel an in-progress drag when navigating to another configuration. Associate pending reads, writes, and agent results with their originating scope so late work cannot mutate the newly active page. Persistence commands capture their target scope when created.
+- History limits and shared preset-library changes remain open.
 
 ## Development-only delivery
 
@@ -105,7 +109,7 @@ The first integration check must demonstrate both a functioning overlay during d
 ## Next decisions
 
 1. Coordinate origins, scrollbar treatment, numeric-entry precision, renderer, and long-document behavior. CSS-pixel coordinates, 1 CSS pixel strokes, and whole-pixel individual dragging are confirmed.
-2. Undo/redo keyboard ownership, history limits, same-document navigation behavior, and shared preset-library scope. Session-only history and drag/batch grouping are confirmed.
+2. Undo/redo keyboard ownership, history limits, and shared preset-library scope. Session-only history, reset on navigation to another configuration, and drag/batch grouping are confirmed.
 3. Domain schemas, agent operation results, and preset transactions.
 4. Persistence versioning, URL identity, navigation, and failure behavior.
 5. Package entry points, development-host rules, shortcuts, and focused acceptance tests.
