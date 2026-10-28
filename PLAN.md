@@ -69,6 +69,10 @@ CSS pixels are confirmed for coordinates and line thickness, so guides scale vis
 
 Presets can contain any number of column, row, and individual items. They remain one level deep: including an existing preset when saving a new preset copies its underlying items rather than nesting a preset reference.
 
+Custom presets are shared across all pages on the same local origin (scheme, hostname, and port), while applied grids remain specific to each page configuration. A preset saved on `/about` is available on `/pricing` at the same origin. Different ports or hostnames have separate libraries in v1.
+
+Ship a built-in library of common web layout grids alongside user-created presets. The proposed initial catalog below still needs review; including presets does not decide whether any grid is automatically applied on a new page.
+
 Saving a preset:
 
 1. Open a save dialog with a name field and item checklist.
@@ -158,9 +162,28 @@ These suggestions were discussed but were not individually finalized:
 - Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
 - Preserve the unit when dragging an individual percentage guide. Preserve saved guides that move off-screen after resize.
 - Retain fractional positions in generated geometry and percentage guides. Allow fractional values through precise numeric entry; this input behavior remains to be confirmed separately from whole-pixel dragging.
-- Store configurations by origin and path, and make user presets reusable across that origin. Decide whether local host/port changes should be handled specially.
+- Store page configurations by origin and path with the agreed query-override behavior. Custom presets are confirmed to be shared within an origin; automatic cross-origin or cross-port sharing is outside v1.
 - Keep the agent API available while the panel or grid lines are hidden.
 - Treat grouped multi-item agent edits as one undoable change. Proposed details: apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
+
+## Proposed built-in presets
+
+Provide a compact catalog using the same preset/item schemas as custom presets. These values are proposed Lattice defaults inspired by established patterns, not exact reproductions of another framework's complete responsive layout.
+
+| Preset | Underlying items | Gutter | Outer margin |
+| --- | --- | --- | --- |
+| 4 columns | One stretch column item, count 4 | 16px | 16px each side |
+| 8 columns | One stretch column item, count 8 | 24px | 24px each side |
+| 12 columns | One stretch column item, count 12 | 24px | 24px each side |
+| 16 columns | One stretch column item, count 16 | 16px | 16px each side |
+| 4px baseline | One top-aligned row item, automatic count, fixed height 4px, offset 0 | 0px | Not applicable |
+| 8px baseline | One top-aligned row item, automatic count, fixed height 8px, offset 0 | 0px | Not applicable |
+
+All values use CSS pixels. Baseline presets produce horizontal guides at 4px or 8px intervals across the document height; deduplicate shared row boundaries. Column presets stretch within the current browser width. Users may apply multiple presets together, such as 12 columns plus an 8px baseline. Selection is manual; v1 does not switch between presets at breakpoints.
+
+Basis for the starter set: [Material's web grid](https://m2.material.io/develop/web/supporting/layout-grid) uses 4, 8, and 12 columns; [Bootstrap's grid](https://getbootstrap.com/docs/5.2/layout/grid/) uses 12 columns with a 1.5rem default gutter; [Carbon's 2x Grid](https://www.carbondesignsystem.com/building-blocks/foundations/2x-grid/overview) includes 16-column layouts and an 8px base unit. Material also documents [4-unit typographic baselines and 8-unit layout spacing](https://m2.material.io/design/layout/understanding-layout.html). Lattice's CSS-pixel gutters and margins are design choices, not a promise of exact framework alignment.
+
+Propose making built-ins read-only. Users customize an application by unlinking its items and may save the result as a custom preset. Built-ins remain available after clearing custom presets. Exact colors, opacity, catalog contents, and first-load application remain open.
 
 ## Remaining decisions
 
@@ -172,7 +195,7 @@ Resolve these before the implementation slice that depends on them:
 | Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
 | Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
 | Geometry | Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom expectations. Coordinates and strokes use CSS pixels; pixel-based individual drags snap to whole CSS pixels. |
-| Preset inventory | Built-in grids, default counts/gutters/margins, bright palette, and color/opacity scope. |
+| Preset inventory | Review the proposed six built-in grids, gutters/margins, read-only catalog behavior, bright palette, and color/opacity scope. |
 | Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/shared-preset scope. History is session-only and resets when navigation loads another page's configuration. |
 | Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
 | Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
@@ -210,6 +233,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 - Only individual guides drag; Option/Alt duplicates them; preset boundaries remain protected. Pixel-based individual drags and duplicates snap to whole CSS pixels without introducing blanket rounding of generated geometry.
 - Undo/redo restores edits with stable item identity; a completed drag and a grouped agent edit each occupy one history step. Refresh and navigation to another page's configuration restore saved grids with empty undo/redo histories, including when returning to a previous page. Verify platform shortcuts and focus behavior against text editing and the host page.
 - Saving presets replaces only selected items; copied contents are flat; unlinking preserves item types; updates are explicit.
+- A custom preset saved on one page is available on another page of the same origin, while their applied grids remain independent. Built-in catalog entries are available without saved user data.
 - Refresh restores state; query edits fork independently; reset restores inheritance; item and master visibility have different persistence effects.
 - Panel/grid visibility transitions obey the agreed state model; hidden panels leave no visible control; click-through works on the page underneath.
 - Panel, JavaScript API, and WebMCP produce equivalent state changes. Verify agent reads and edits against the same live page.

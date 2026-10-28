@@ -53,6 +53,21 @@ Foldkit's [architecture](https://foldkit.dev/core/architecture) provides Model, 
 
 These are internal modules in one initial package, not independently published packages.
 
+## Preset catalog and persistence scopes
+
+Confirmed: custom presets are shared by all pages at the same local origin; applied grid configurations remain page-specific. The library also ships common built-in presets. See the proposed catalog in [PLAN.md](PLAN.md).
+
+Proposed storage design:
+
+- Bundle built-in preset definitions with the development runtime. Keep them read-only and use stable catalog IDs and revisions. Do not seed mutable copies into browser storage on first launch.
+- Store user-created definitions in one versioned, origin-wide preset library. Keep this record separate from page configurations and viewing preferences. Browser origin separation includes scheme, hostname, and port; v1 does not add cross-origin sharing.
+- Present built-in and custom definitions through one catalog interface. Distinguish their source in metadata and namespace their IDs to avoid collisions. Built-in status does not introduce another kind of grid item.
+- Applying either kind creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in the page configuration. Catalog changes or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates.
+- Baseline presets use ordinary row items with automatic count and no gutter, rather than storing thousands of individual lines or introducing another item type. Derive their geometry from current document height.
+- An agent can list available catalog entries and apply them through the same operations used by the panel. Built-in versus custom presets have identical applied-grid rules, including unlinking before editing contents.
+
+Exact catalog values, color defaults, editing/deletion of custom definitions, and undo behavior for shared-library mutations remain open. Storage transaction and cross-tab conflict handling must be specified before implementing preset mutations.
+
 ## Embedding and lifecycle
 
 Use `Runtime.makeElement` and `Runtime.embed` for Lattice's isolated mount. Foldkit documents that this mode stays within its container without taking ownership of the page title or URL. Its embed handle provides typed ports and disposal. See [embedding](https://foldkit.dev/core/embedding).
