@@ -36,7 +36,7 @@
     "test:browser": "playwright test",
     "prepack": "npm run build",
     "dev": "npm run build && vite --config playground/vite.config.ts",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run build && npm run typecheck && npm test"
   },
   "dependencies": {
     "@effect/platform-browser": "4.0.0",
