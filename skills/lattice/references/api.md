@@ -4,6 +4,16 @@ Prefer WebMCP tools when the browser connection exposes them. Otherwise evaluate
 
 ```js
 const context = await window.lattice.read()
+```
+
+Read before layout work, regardless of visibility. `context.items` contains all configured items, including hidden items and applied preset snapshots. An empty list with no load error means this page has no grid. Ask the user to choose a grid before adding one; inspect comparable running pages in the same project and browser profile to recommend their saved configurations. There is no cross-page listing API: identify comparable routes from the project or its navigation and read those pages. If you cannot inspect them, say so and offer a suitable catalog preset. Do not write browser storage directly.
+
+`context.geometry` includes hidden items; each guide and resolved grid has `visible`, the combined item/preset visibility before the master toggle. This flag does not affect its use for layout alignment. Grid starts and sizes are CSS pixels: vertical guides use x from the viewport left; horizontal guides use y from the document top. Compare element `getBoundingClientRect()` x coordinates directly; add `scrollY` to its y coordinates. Resolved grid `start`, `size`, `gutter`, and `count` describe tracks; track n starts at `start + n * (size + gutter)`. Preserve fractional track geometry. Read again after layout changes or viewport changes.
+
+After the user chooses to create a grid, for example:
+
+```js
+const context = await window.lattice.read()
 const result = await window.lattice.batch(
   [
     { type: 'add', item: { kind: 'columns', count: 12, gutter: 20, margin: 20 } },
@@ -16,6 +26,8 @@ const result = await window.lattice.batch(
 This adds both items as one undo step. Inspect `result.ok`, `applied`, `persisted`, `error`, and `context`; failed persistence can leave an edit applied in memory. Read before retrying uncertain operations.
 
 `batch` operations: `add` with `item`; `update` with `id` and `changes`; `remove`, `duplicate`, `unlink`, or `updatePreset` with `id`; `applyPreset` with `presetId` from the catalog. Preserve unrequested items. Preset children cannot be edited until unlinked.
+
+To reuse a comparable page's grid, read that page first, then apply matching catalog presets on the target only if their definitions match the saved snapshots. Otherwise copy underlying columns, rows, and individual settings with `add` operations, omitting IDs and preset metadata; the library assigns fresh IDs. Do not change the source page or save a shared preset unless requested.
 
 Item inputs:
 
@@ -36,4 +48,4 @@ Other actions use `window.lattice.execute(action, { expectedRevision })`:
 
 Save writes the project file, then replaces selected items with one applied snapshot. Undo restores page items and keeps the definition. Delete is explicit and leaves applied snapshots intact. Inline and built-in catalog entries are read-only. A late save after navigation can return `saved: true, applied: false`; use the returned `presetId` to apply it deliberately.
 
-`context.geometry.guides` is culled to the viewport and limited to 5,000 lines; check `truncated`. Grid formulas, dimensions, and all stored item settings remain available. Horizontal coordinates start at the document top; vertical coordinates start at the viewport left. Hidden UI does not disable the API.
+`context.geometry.guides` is culled to the viewport and limited to 5,000 lines; check `truncated`. Use grid formulas and stored individual positions to resolve off-screen coordinates; absence from this list does not mean no grid. Dimensions and all stored item settings remain available. Hidden UI does not disable the API, and reading never reveals it.

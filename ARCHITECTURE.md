@@ -92,7 +92,7 @@ Repository and browser saves are separate commits. Results expose `saved`, `appl
 
 ## Agent and lifecycle boundaries
 
-`window.lattice` provides `read`, `execute`, `batch`, and `dispose`. Context includes settings, dimensions, scope, visibility, history counts, catalog, and resolved viewport geometry. Strict action/domain validation applies to both UI and agents. Requests time out after 15 seconds with an uncertain-outcome error; timeout does not roll back writes.
+`window.lattice` provides `read`, `execute`, `batch`, and `dispose`. Context includes settings, dimensions, scope, visibility, history counts, catalog, and resolved viewport geometry. Context resolution includes hidden items and preset children for layout alignment; geometry's `visible` flag reflects combined item/preset visibility before the master toggle. Rendering still excludes hidden items. Reading changes neither settings nor visibility. Strict action/domain validation applies to both UI and agents. Requests time out after 15 seconds with an uncertain-outcome error; timeout does not roll back writes.
 
 WebMCP registers `lattice_read` and `lattice_edit` via feature-detected `document.modelContext.registerTool`. Abort signals remove registrations. The JS fallback remains active while hidden. Adapter tests use a harness; native external agent discovery remains to verify.
 

@@ -3,10 +3,12 @@
 Run `npx --no-install lattice setup` in a consuming project after installing the package. It installs [the skill](skills/lattice/SKILL.md) and [API reference](skills/lattice/references/api.md), then adds this pointer to `AGENTS.md`:
 
 ```markdown
-For Lattice page grid overlays, read `.agents/skills/lattice/SKILL.md`. Prefer the running page's WebMCP tools when available.
+Before designing or changing page layouts, and when editing Lattice grids, read `.agents/skills/lattice/SKILL.md`. Use the page's configured grid even when hidden. If none is configured, ask whether to add one, recommending a verified grid from a similar project page or a suitable common preset. Prefer the running page's WebMCP tools when available.
 ```
 
 Existing instructions are preserved. The command refuses to overwrite a differing skill or reference. A package's internal skill is not assumed to be automatically discoverable.
+
+The skill applies to page layout work as well as overlay editing. Agents read configured grids regardless of visibility, align the page's CSS to them, and verify against measured geometry without changing visibility or the grid. When a page has no grid, agents inspect comparable project pages and offer a verified existing grid first, otherwise an appropriate common preset, plus alternatives and the option to proceed without one. Creating a grid waits for the user's choice. Comparable pages must be read in the same browser profile to access their saved configurations; the API currently reads one running page at a time.
 
 ## Access order
 

@@ -162,7 +162,7 @@ export function view(model: Model, h: HtmlBuilder<Message>): Html {
         ),
       ],
     )
-  const geometry = resolve(displayedItems(model), model.dimensions, true)
+  const geometry = resolve(displayedItems(model), model.dimensions, { viewportOnly: true })
   const picked =
     model.catalog.presets.find((p) => p.id === model.pickedPreset) ?? model.catalog.presets[0]
   const selected = model.page.items.find((i) => i.id === model.selected)

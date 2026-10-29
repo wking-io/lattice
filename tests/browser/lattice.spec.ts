@@ -61,6 +61,44 @@ test('agent batch, undo/redo, refresh, resizing, and navigation preserve intende
   expect(errors).toEqual([])
 })
 
+test('hidden grids remain readable for layout alignment after refresh and resize', async ({
+  page,
+}) => {
+  const added = await execute(page, {
+    type: 'batch',
+    operations: [
+      { type: 'applyPreset', presetId: 'builtin:columns-12' },
+      { type: 'add', item: { kind: 'individual', unit: '%', position: 50, visible: false } },
+    ],
+  })
+  await execute(page, {
+    type: 'batch',
+    operations: [{ type: 'update', id: added.context.items[0]!.id, changes: { visible: false } }],
+  })
+  await expect(page.locator('.line, .guide')).toHaveCount(0)
+  const configured = await read(page)
+  expect(configured.geometry.grids[0]).toMatchObject({ count: 12, start: 24, visible: false })
+  expect(configured.geometry.guides.at(-1)).toMatchObject({ position: 640, visible: false })
+  await execute(page, { type: 'visibility', grids: false })
+  const hidden = await read(page)
+  expect(hidden.geometry).toEqual(configured.geometry)
+  expect(hidden.items).toEqual(configured.items)
+  expect(hidden.history).toEqual(configured.history)
+  await expect(page.locator('.overlay, .panel')).toHaveCount(0)
+
+  await page.reload()
+  await page.waitForFunction(() => !!window.lattice)
+  expect((await read(page)).items).toEqual(configured.items)
+  await page.setViewportSize({ width: 1000, height: 800 })
+  await expect.poll(async () => (await read(page)).dimensions.width).toBe(1000)
+  const resized = await read(page)
+  expect(resized.geometry.guides.at(-1)?.position).toBe(500)
+  expect(resized.geometry.grids[0]?.size).toBe((1000 - 48 - 11 * 24) / 12)
+  expect(resized.visibility).toEqual({ grids: false, panel: false })
+  expect(resized.history).toEqual({ undo: 0, redo: 0 })
+  await expect(page.locator('.overlay, .panel')).toHaveCount(0)
+})
+
 test('panel edits, pixel dragging, Alt duplication, and focus-owned keyboard undo', async ({
   page,
 }) => {

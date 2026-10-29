@@ -42,7 +42,7 @@ export async function installSkill(
   if (!existing.includes('.agents/skills/lattice/SKILL.md'))
     await writeFile(
       agentsFile,
-      `${existing}${existing && !existing.endsWith('\n') ? '\n' : ''}\nFor Lattice page grid overlays, read \`.agents/skills/lattice/SKILL.md\`. Prefer the running page's WebMCP tools when available.\n`,
+      `${existing}${existing && !existing.endsWith('\n') ? '\n' : ''}\nBefore designing or changing page layouts, and when editing Lattice grids, read \`.agents/skills/lattice/SKILL.md\`. Use the page's configured grid even when hidden. If none is configured, ask whether to add one, recommending a verified grid from a similar project page or a suitable common preset. Prefer the running page's WebMCP tools when available.\n`,
     )
 }
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {

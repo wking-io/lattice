@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { leaf, transact, type Catalog } from '../src/domain.js'
 import { gridGeometry, resolve } from '../src/geometry.js'
 import { builtins, catalogEntries } from '../src/presets.js'
-import { applySaved, batch, capturePreset, history, type State } from '../src/state.js'
+import { applySaved, batch, capturePreset, context, history, type State } from '../src/state.js'
 import { loadPage, persistPage, type StorageLike } from '../src/storage.js'
 
 class MemoryStorage implements StorageLike {
@@ -56,7 +56,13 @@ describe('geometry', () => {
     const result = resolve(items, dimensions)
     expect(result.guides.filter((g) => g.leafId === items[0]!.id)).toHaveLength(301)
     expect(result.guides.at(-1)?.position).toBe(1200)
-    const large = resolve(items, { ...dimensions, height: 10_000_000, scrollY: 200_000 }, true)
+    const large = resolve(
+      items,
+      { ...dimensions, height: 10_000_000, scrollY: 200_000 },
+      {
+        viewportOnly: true,
+      },
+    )
     expect(large.guides.length).toBeLessThan(110)
     expect(large.grids[0]?.count).toBe(1_250_000)
   })
@@ -69,10 +75,44 @@ describe('geometry', () => {
     const dense = resolve(
       [leaf({ kind: 'rows', count: 'auto', alignment: 'min', size: 0.00001, gutter: 0 })],
       dimensions,
-      true,
+      { viewportOnly: true },
     )
     expect(dense.truncated).toBe(true)
     expect(dense.guides.length).toBeLessThanOrEqual(5000)
+  })
+  it('exposes hidden items and preset children for alignment without rendering or changing them', () => {
+    const configured = batch(initial(), [
+      { type: 'applyPreset', presetId: 'builtin:columns-12' },
+      { type: 'add', item: { kind: 'individual', unit: '%', position: 50, visible: false } },
+    ])
+    const preset = configured.page.items[0]!
+    if (preset.kind !== 'preset') throw new Error('Expected preset')
+    const state: State = {
+      ...configured,
+      preferences: { grids: false, panel: false },
+      page: {
+        ...configured.page,
+        items: [
+          { ...preset, visible: false },
+          {
+            ...preset,
+            id: 'hidden-child',
+            items: preset.items.map((i) => ({ ...i, visible: false })),
+          },
+          configured.page.items[1]!,
+        ],
+      },
+    }
+    const before = structuredClone(state)
+    const read = context(state)
+    expect(read.geometry.includesHidden).toBe(true)
+    expect(read.geometry.grids).toHaveLength(2)
+    expect(read.geometry.grids.every((g) => !g.visible)).toBe(true)
+    expect(read.geometry.guides.every((g) => !g.visible)).toBe(true)
+    expect(read.geometry.guides.at(-1)?.position).toBe(600)
+    expect(read.items).toEqual(state.page.items)
+    expect(resolve(state.page.items, dimensions).guides).toEqual([])
+    expect(state).toEqual(before)
   })
 })
 describe('shared editing and history', () => {

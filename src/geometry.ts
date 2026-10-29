@@ -8,6 +8,7 @@ export interface Guide {
   color: string
   opacity: number
   draggable: boolean
+  visible: boolean
 }
 export interface ResolvedGrid {
   itemId: string
@@ -17,6 +18,7 @@ export interface ResolvedGrid {
   start: number
   size: number
   gutter: number
+  visible: boolean
   warning?: string
 }
 export function gridGeometry(item: Exclude<Leaf, { kind: 'individual' }>, length: number) {
@@ -57,21 +59,22 @@ export function gridGeometry(item: Exclude<Leaf, { kind: 'individual' }>, length
 export function resolve(
   items: Items,
   dimensions: Dimensions,
-  visibleOnly = false,
+  { viewportOnly = false, includeHidden = false } = {},
 ): { guides: Guide[]; grids: ResolvedGrid[]; truncated: boolean } {
   const guides: Guide[] = [],
     grids: ResolvedGrid[] = []
   let truncated = false
   for (const owner of items) {
-    if (!owner.visible) continue
+    if (!includeHidden && !owner.visible) continue
     for (const item of owner.kind === 'preset' ? owner.items : [owner]) {
-      if (!item.visible) continue
+      if (!includeHidden && !item.visible) continue
+      const visible = owner.visible && item.visible
       const axis =
         item.kind === 'individual' ? item.axis : item.kind === 'columns' ? 'vertical' : 'horizontal'
       const length = axis === 'vertical' ? dimensions.width : dimensions.height
-      const min = visibleOnly && axis === 'horizontal' ? dimensions.scrollY - 8 : 0
+      const min = viewportOnly && axis === 'horizontal' ? dimensions.scrollY - 8 : 0
       const max =
-        visibleOnly && axis === 'horizontal'
+        viewportOnly && axis === 'horizontal'
           ? dimensions.scrollY + dimensions.viewportHeight + 8
           : length
       const seen = new Set<number>()
@@ -91,6 +94,7 @@ export function resolve(
           color: item.color,
           opacity: item.opacity,
           draggable: owner.kind === 'individual',
+          visible,
         })
       }
       if (item.kind === 'individual') {
@@ -98,7 +102,7 @@ export function resolve(
         continue
       }
       const geometry = gridGeometry(item, length)
-      grids.push({ itemId: owner.id, leafId: item.id, axis, ...geometry })
+      grids.push({ itemId: owner.id, leafId: item.id, axis, visible, ...geometry })
       if (geometry.size < 0 || !geometry.count) continue
       const step = geometry.size + geometry.gutter
       if (step <= 0) {

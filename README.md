@@ -132,6 +132,8 @@ npx --no-install lattice setup
 
 This copies the skill and API reference into `.agents/skills/lattice/` and appends a pointer to `AGENTS.md`, preserving existing instructions. Differing existing skill files require a manual merge.
 
+The skill directs agents to read and align layouts to the page's configured grid even when it is hidden. If no grid exists, agents ask whether to add one, recommending a verified grid from a similar project page first, otherwise a suitable common preset. Grid creation waits for the user's choice; existing grids and visibility are preserved during layout work.
+
 Prefer the running page's **WebMCP** tools: `lattice_read` and `lattice_edit`. Registration is feature-detected on `document.modelContext`. If the browser connection cannot discover them, use the JavaScript fallback:
 
 ```js

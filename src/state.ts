@@ -79,7 +79,10 @@ export function applySaved(
   return edit({ ...state, catalog }, remaining)
 }
 export function context(state: State) {
-  const geometry = resolve(state.page.items, state.dimensions, true)
+  const geometry = resolve(state.page.items, state.dimensions, {
+    viewportOnly: true,
+    includeHidden: true,
+  })
   return {
     version: 1 as const,
     revision: state.revision,
@@ -99,6 +102,7 @@ export function context(state: State) {
     catalog: state.catalog,
     geometry: {
       ...geometry,
+      includesHidden: true as const,
       guidesScope: 'viewport' as const,
       coordinates: 'CSS pixels; x from viewport left, y from document top',
     },

@@ -57,7 +57,7 @@ export async function registerWebMCP(api: LatticeAPI, signal: AbortSignal): Prom
     {
       name: 'lattice_read',
       description:
-        'Read Lattice page grid settings, item IDs, geometry, dimensions, history, and available presets. Prefer this over inspecting overlay DOM.',
+        'Read the page grid before designing or aligning its layout, even when grids or the panel are hidden. Returns all configured items, resolved geometry including hidden items, dimensions, history, and available presets. If no items are configured, ask whether to add a grid; recommend a verified grid from a similar project page, otherwise a suitable common preset. Prefer this over inspecting overlay DOM.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, debugging: true },
       execute: async () => JSON.stringify(await api.read()),

@@ -148,6 +148,8 @@ Agent capabilities should include reading state, creating and editing items, nam
 
 Expose saved configuration and current resolved geometry, including stable IDs, names, units, URL, storage scope, browser/document dimensions, and visibility. Agents need enough information to interpret a coordinate and verify an edit.
 
+When designing or adjusting a page layout, agents should read and use its configured grid whether the overlay, panel, or individual items are visible or hidden. Reading must not reveal the UI. Layout changes preserve grid settings and visibility; verify element alignment against current geometry after changes. If the page has no configured items, ask whether to add a grid and offer options before creating one. Prefer a verified grid from a comparable page in the same project, otherwise recommend a suitable common preset; also allow proceeding without a grid. Inspect comparable running pages in the same browser profile, and distinguish a missing grid from unavailable context or a storage error.
+
 Example user request: “Make a 12-column grid with 20px gap and margin and an 8px vertical baseline.” The intended interpretation to support is a stretch column item with count 12, 20px gutters and margins, plus horizontal baseline guides spaced every 8px. Baseline terminology should be clarified if the user's intended orientation is ambiguous.
 
 The compact [agent skill](skills/lattice/SKILL.md) guides agents toward WebMCP, then supported fallbacks. [Agent integration guidance](agent-integration.md) contains the project-instructions pointer. Bundle the skill with the development tooling and offer setup into the consuming project's skill location; do not assume that a skill inside an npm dependency is automatically discovered.
