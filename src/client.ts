@@ -7,11 +7,15 @@ import {
   persistPage,
   preferenceKey,
   scope,
+  listSavedPages,
+  readSavedPage,
   type PageState,
   type Preferences,
 } from './storage.js'
-import { makeProgram, type Event, type Job } from './browser/program.js'
-import { registerWebMCP, type LatticeAPI, type OperationResult } from './browser/api.js'
+import { makeProgram } from './browser/program.js'
+import type { Event, Job } from './browser/model.js'
+import { createBridge } from './browser/bridge.js'
+import { registerWebMCP, type LatticeAPI } from './browser/api.js'
 
 interface ClientConfig {
   projectId: string
@@ -66,11 +70,18 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
     viewportHeight: document.documentElement.clientHeight,
     scrollY: window.scrollY,
   })
-  const fetchCatalog = async (mutation?: unknown): Promise<Catalog> => {
+  const fetchCatalog = async (
+    mutation?: unknown,
+    requestSignal?: AbortSignal,
+  ): Promise<Catalog> => {
     const response = await fetch(config.endpoint, {
       method: mutation ? 'POST' : 'GET',
       credentials: 'same-origin',
-      signal: lifetime.signal,
+      signal: AbortSignal.any([
+        lifetime.signal,
+        AbortSignal.timeout(10000),
+        ...(requestSignal ? [requestSignal] : []),
+      ]),
       headers: {
         'X-Lattice-Token': config.token,
         ...(mutation ? { 'Content-Type': 'application/json' } : {}),
@@ -111,7 +122,17 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
   container.id = `lattice-${uid()}`
   shadow.append(container)
   document.body.append(host)
+  // The top layer keeps viewport coordinates independent of transforms on html/body.
+  host.popover = 'manual'
+  host.showPopover()
+  const bridge = createBridge((event) => send(event), currentScope)
   const perform = async (job: Job): Promise<unknown> => {
+    const requestSignal = AbortSignal.any([
+      lifetime.signal,
+      bridge.signal(job.request.id),
+      AbortSignal.timeout(10000),
+    ])
+    requestSignal.throwIfAborted()
     switch (job.type) {
       case 'persist':
         persistPage(localStorage, job.before, job.after)
@@ -120,9 +141,22 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
         localStorage.setItem(preferenceKey(config.projectId), JSON.stringify(job.preferences))
         return undefined
       case 'preset':
-        return fetchCatalog(job.mutation)
+        return fetchCatalog(job.mutation, requestSignal)
       case 'copy':
-        return navigator.clipboard.writeText(job.text)
+        return new Promise<void>((resolve, reject) => {
+          const abort = () => reject(requestSignal.reason)
+          requestSignal.addEventListener('abort', abort, { once: true })
+          navigator.clipboard.writeText(job.text).then(
+            () => {
+              requestSignal.removeEventListener('abort', abort)
+              resolve()
+            },
+            (error) => {
+              requestSignal.removeEventListener('abort', abort)
+              reject(error)
+            },
+          )
+        })
       case 'reset': {
         if (job.queryOnly && job.page.queryKey) localStorage.removeItem(job.page.queryKey)
         else {
@@ -136,26 +170,13 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
       }
     }
   }
-  const handle = Runtime.embed(makeProgram(container, initial, { perform, currentScope }))
+  const handle = Runtime.embed(
+    makeProgram(container, initial, { perform, currentScope, isCanceled: bridge.isCanceled }),
+  )
   const send = (event: Event) => {
     if (!disposed) handle.ports.event.send(event)
   }
-  const pending = new Map<
-    string,
-    {
-      resolve(result: OperationResult): void
-      reject(error: Error): void
-      timer: ReturnType<typeof setTimeout>
-    }
-  >()
-  const unsubscribe = handle.ports.result.subscribe(({ id, result }) => {
-    const request = pending.get(id)
-    if (request) {
-      clearTimeout(request.timer)
-      request.resolve(result)
-    }
-    pending.delete(id)
-  })
+  const unsubscribe = handle.ports.result.subscribe(bridge.accept)
   const api: LatticeAPI = {
     version: 1,
     read: async () => {
@@ -163,31 +184,9 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
       if (!result.ok) throw new Error(result.error)
       return result.context
     },
-    execute(action, options = {}) {
-      if (disposed) return Promise.reject(new Error('Lattice was disposed.'))
-      const id = uid()
-      return new Promise((resolve, reject) => {
-        const clonedAction = structuredClone(action)
-        const timer = setTimeout(() => {
-          pending.delete(id)
-          reject(
-            new Error(
-              'Lattice did not acknowledge the request within 15 seconds. Its outcome is uncertain; inspect the page and preset file before retrying.',
-            ),
-          )
-        }, 15000)
-        pending.set(id, { resolve, reject, timer })
-        send({
-          type: 'request',
-          request: {
-            id,
-            scope: currentScope(),
-            action: clonedAction,
-            expectedRevision: options.expectedRevision,
-          },
-        })
-      })
-    },
+    listSavedPages: async () => listSavedPages(localStorage, location.href, config.projectId),
+    readSavedPage: async (url) => readSavedPage(localStorage, url, location.href, config.projectId),
+    execute: bridge.execute,
     batch: (operations, options) => api.execute({ type: 'batch', operations }, options),
     dispose: () => cleanup(),
   }
@@ -225,6 +224,8 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
   })
   window.addEventListener('resize', measure, { signal: lifetime.signal })
   window.addEventListener('scroll', measure, { signal: lifetime.signal, passive: true })
+  window.visualViewport?.addEventListener('resize', measure, { signal: lifetime.signal })
+  window.visualViewport?.addEventListener('scroll', measure, { signal: lifetime.signal })
   window.addEventListener('popstate', navigate, { signal: lifetime.signal })
   const originalPush = history.pushState,
     originalReplace = history.replaceState
@@ -424,15 +425,7 @@ export async function start(config: ClientConfig, hot?: HotContext): Promise<voi
     unsubscribe()
     handle.dispose()
     host.remove()
-    for (const request of pending.values()) {
-      clearTimeout(request.timer)
-      request.reject(
-        new Error(
-          'Lattice disposed before the request completed. A pending preset save may have reached the server; check the catalog before retrying.',
-        ),
-      )
-    }
-    pending.clear()
+    bridge.dispose()
     if (window.lattice === api) delete window.lattice
   }
   // Ensure the port subscription is ready before advertising initial state to callers.

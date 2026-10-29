@@ -3,10 +3,24 @@ import { leaf, transact, type Catalog } from '../src/domain.js'
 import { gridGeometry, resolve } from '../src/geometry.js'
 import { builtins, catalogEntries } from '../src/presets.js'
 import { applySaved, batch, capturePreset, context, history, type State } from '../src/state.js'
-import { loadPage, persistPage, type StorageLike } from '../src/storage.js'
+import {
+  loadPage,
+  persistPage,
+  listSavedPages,
+  readSavedPage,
+  type StorageLike,
+} from '../src/storage.js'
+import { decode } from '../src/domain.js'
+import { toolInputs, validateAction } from '../src/browser/actions.js'
 
 class MemoryStorage implements StorageLike {
   data = new Map<string, string>()
+  get length() {
+    return this.data.size
+  }
+  key(index: number) {
+    return [...this.data.keys()][index] ?? null
+  }
   getItem(key: string) {
     return this.data.get(key) ?? null
   }
@@ -175,6 +189,36 @@ describe('shared editing and history', () => {
   })
 })
 describe('URL persistence', () => {
+  it('discovers only this project and origin, preserves query inheritance, and reports corrupt data', () => {
+    const storage = new MemoryStorage()
+    const before = initial(storage)
+    const base = batch(before, [{ type: 'add', item: { kind: 'columns', visible: false } }])
+    persistPage(storage, before.page, base.page)
+    storage.setItem(
+      'lattice:v1:another-project:http://localhost/secret',
+      '{"version":1,"items":[]}',
+    )
+    storage.setItem('lattice:v1:test:http://localhost:4000/secret', '{"version":1,"items":[]}')
+    storage.setItem('lattice:v1:test:preferences', '{"grids":false,"panel":false}')
+    storage.setItem('lattice:v1:test:http://localhost/broken', 'broken')
+    const list = listSavedPages(storage, before.page.url, 'test')
+    expect(list).toHaveLength(2)
+    expect(list.find((entry) => entry.url.endsWith('/products'))).toMatchObject({
+      itemCount: 1,
+      kind: 'base',
+    })
+    expect(list.find((entry) => entry.url.endsWith('/broken'))?.error).toBeTruthy()
+    const saved = readSavedPage(storage, '/products?b=2&a=1#ignore', before.page.url, 'test')
+    expect(saved).toMatchObject({
+      inherited: true,
+      url: 'http://localhost/products?a=1&b=2',
+      items: base.page.items,
+    })
+    expect(() =>
+      readSavedPage(storage, 'https://example.com/products', before.page.url, 'test'),
+    ).toThrow('origin')
+    expect(storage.length).toBe(5)
+  })
   it('forks query edits, can undo the fork, and excludes history from storage', () => {
     const storage = new MemoryStorage()
     const before = initial(storage),
@@ -204,5 +248,31 @@ describe('URL persistence', () => {
     expect(next.page.override).toBe(false)
     expect(loadPage(storage, 'http://localhost/products', 'test').items).toHaveLength(1)
     expect(loadPage(storage, 'http://localhost/products', 'another-project').items).toHaveLength(0)
+  })
+})
+
+describe('agent input boundaries', () => {
+  it('rejects extra fields, invalid leaf settings, and shared writes in the overlay tool', () => {
+    expect(() => decode(toolInputs.lattice_read, { extra: true })).toThrow()
+    expect(() =>
+      decode(toolInputs.lattice_edit, { action: { type: 'deletePreset', presetId: 'file:foo' } }),
+    ).toThrow()
+    expect(() =>
+      validateAction({
+        type: 'batch',
+        operations: [{ type: 'add', item: { kind: 'columns', gutter: -1 } }],
+      }),
+    ).toThrow()
+    expect(() =>
+      validateAction({
+        type: 'batch',
+        operations: [{ type: 'add', item: { kind: 'columns', mystery: true } }],
+      }),
+    ).toThrow()
+    expect(() => validateAction({ type: 'batch', operations: [] })).toThrow()
+    expect(
+      decode(toolInputs.lattice_presets, { action: { type: 'deletePreset', presetId: 'file:foo' } })
+        .action.type,
+    ).toBe('deletePreset')
   })
 })

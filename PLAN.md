@@ -1,6 +1,6 @@
 # Lattice plan
 
-Status: initial library implementation complete; release validation remains. See README.md and ARCHITECTURE.md for the implemented interface and verification limits.
+Status: implementation and architecture review fixes complete; package identity/license and real Safari validation remain. See README.md and ARCHITECTURE.md for the implemented interface and verification limits.
 Updated: 2026-10-28.
 Project name: Lattice. Public repository: `wking-io/lattice`.
 The published package name and license remain to be selected.
@@ -56,7 +56,7 @@ The supported combinations and automatic-count behavior must be checked against 
 - There are no breakpoint-specific configurations or automatic switches between desktop/mobile presets in v1.
 - Preserve the configured values on resize. Stretch grids and percentage guides still resolve against their current dimensions; fixed pixel values remain fixed in their coordinate system.
 
-CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Pixel-based individual drags snap to whole CSS pixels. The implementation uses left/top origins, excludes the viewport scrollbar, and accepts fractional numeric input. Pinch zoom still needs verification.
+CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Pixel-based individual drags snap to whole CSS pixels. The implementation uses left/top origins, excludes the viewport scrollbar, and accepts fractional numeric input. Desktop zoom and protocol-emulated pinch zoom are covered in Chromium; physical touch remains a manual check.
 
 ### Appearance
 
@@ -209,10 +209,10 @@ Watch the JSON file and update the catalog in connected pages when it changes. R
 ## Remaining release decisions and checks
 
 - Final npm package name and license; no package has been published.
-- Supported browser matrix, real desktop zoom, pinch zoom, and transformed root/body behavior.
-- Native WebMCP discovery and invocation from an external agent connection. The adapter harness and JavaScript fallback are tested.
-- Vite 7 compatibility verification; current integration tests run on Vite 8.
+- Real Safari validation requires its Remote Automation setting; WebKit coverage does not establish Safari support. Physical touch gestures remain a manual check.
 - Whether to add cross-tab reconciliation before a broader release; current page storage uses last write wins.
+
+Completed review follow-up: schema-derived types and generated WebMCP schemas; separate shared-file tool; reads outside the write queue; queued/active cancellation and bounded requests; focused request/interaction/bridge modules with one state owner; read-only saved-page discovery; transformed-root isolation through the top layer; Chromium/Firefox/WebKit tests; native external WebMCP, desktop zoom and simulated pinch coverage in Chromium; packed Vite 7/8 consumers. The build now reports and budgets raw/gzip/Brotli sizes, strips unused HMR code, minifies further, and serves precompressed development assets. Production output remains unchanged.
 
 ## Backlog
 
@@ -220,7 +220,7 @@ Watch the JSON file and update the catalog in connected pages when it changes. R
 - Breakpoint-specific configurations and responsive preset switching.
 - Converting generated column/row boundaries into individual guides, only if a real workflow calls for it.
 - Snapping guides to page elements.
-- Touch-specific editing and pinch-zoom validation.
+- Touch-specific editing and physical pinch-zoom validation.
 - Overlapping-guide selection, configurable shortcuts, and configurable URL/hash matching.
 - Cross-tab page-state reconciliation; current localStorage writes use last write wins.
 - Live cross-device or team synchronization beyond sharing preset files through Git.
@@ -228,7 +228,7 @@ Watch the JSON file and update the catalog in connected pages when it changes. R
 
 ## Implementation sequence and status
 
-The initial implementation covers steps 1–6 below, including the JavaScript agent fallback and a WebMCP registration harness. Native WebMCP discovery and release preparation remain. The original sequence is retained for context.
+The implementation covers steps 1–6 below, including the JavaScript fallback, adapter harness, and native external WebMCP discovery/invocation. Most release checks are complete; the remaining checks and decisions are listed above. The original sequence is retained for context.
 
 1. **Repository and integration foundation.** The public repository and initial Vite target are selected. Verify the Effect/Foldkit embedding and prove that an empty development integration contributes nothing to a production build before adding the full overlay.
 2. **First usable slice.** Define item identity and state operations; render a column item and an individual guide; connect them to a basic floating panel and documented read API.

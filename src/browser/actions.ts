@@ -1,23 +1,37 @@
 import { Schema } from 'effect'
-import { decode } from '../domain.js'
-import type { Action } from './api.js'
+import { decode, Operations } from '../domain.js'
 
-const actionSchema = Schema.Union([
-  Schema.Struct({
-    type: Schema.Literals(['read', 'undo', 'redo', 'resetQuery', 'resetPage', 'copyContext']),
-  }),
-  Schema.Struct({ type: Schema.Literal('batch'), operations: Schema.Array(Schema.Unknown) }),
+export const EditAction = Schema.Union([
+  Schema.Struct({ type: Schema.Literals(['undo', 'redo', 'resetQuery', 'resetPage']) }),
+  Schema.Struct({ type: Schema.Literal('batch'), operations: Operations }),
   Schema.Struct({
     type: Schema.Literal('visibility'),
-    grids: Schema.optional(Schema.Boolean),
-    panel: Schema.optional(Schema.Boolean),
+    grids: Schema.optionalKey(Schema.Boolean),
+    panel: Schema.optionalKey(Schema.Boolean),
   }),
+])
+export const PresetAction = Schema.Union([
   Schema.Struct({
     type: Schema.Literal('savePreset'),
-    name: Schema.String,
-    itemIds: Schema.Array(Schema.String),
-    presetId: Schema.optional(Schema.String),
+    name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
+    itemIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
+    presetId: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({ type: Schema.Literal('deletePreset'), presetId: Schema.String }),
 ])
-export const validateAction = (input: unknown): Action => decode(actionSchema, input) as Action
+export const Action = Schema.Union([
+  Schema.Struct({ type: Schema.Literals(['read', 'copyContext']) }),
+  EditAction,
+  PresetAction,
+])
+export type Action = typeof Action.Type
+const revision = Schema.optionalKey(
+  Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+)
+export const toolInputs = {
+  lattice_read: Schema.Record(Schema.String, Schema.Never),
+  lattice_edit: Schema.Struct({ action: EditAction, expectedRevision: revision }),
+  lattice_presets: Schema.Struct({ action: PresetAction, expectedRevision: revision }),
+  lattice_pages: Schema.Struct({ url: Schema.optionalKey(Schema.String) }),
+}
+export const validateAction = (input: unknown): Action => decode(Action, input)

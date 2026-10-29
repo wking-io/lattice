@@ -72,9 +72,24 @@ export function lattice(options: LatticeOptions = {}): Plugin {
             throw new Error('Cross-origin Lattice access is disabled.')
           if (request.headers['sec-fetch-site'] === 'cross-site')
             throw new Error('Cross-site Lattice access is disabled.')
+          if (pathname === `${prefix}client.licenses.txt` && request.method === 'GET') {
+            response.setHeader('Content-Type', 'text/plain; charset=utf-8')
+            response.end(await readFile(new URL('./client.licenses.txt', import.meta.url)))
+            return
+          }
           if (pathname === `${prefix}client.js` && request.method === 'GET') {
             response.setHeader('Content-Type', 'text/javascript')
-            response.end(await readFile(new URL('./client.js', import.meta.url), 'utf8'))
+            const encoding = clientEncoding(request.headers['accept-encoding'] ?? '')
+            response.setHeader('Vary', 'Accept-Encoding')
+            if (encoding) response.setHeader('Content-Encoding', encoding)
+            response.end(
+              await readFile(
+                new URL(
+                  `./client.js${encoding ? `.${encoding === 'gzip' ? 'gz' : 'br'}` : ''}`,
+                  import.meta.url,
+                ),
+              ),
+            )
             return
           }
           if (request.headers['x-lattice-token'] !== token) {
@@ -136,3 +151,20 @@ export function lattice(options: LatticeOptions = {}): Plugin {
   }
 }
 export default lattice
+
+export function clientEncoding(header: string): 'br' | 'gzip' | undefined {
+  const weights = new Map(
+    header
+      .toLowerCase()
+      .split(',')
+      .map((entry) => {
+        const [name, ...parameters] = entry.trim().split(';')
+        const quality = parameters.find((value) => value.trim().startsWith('q='))
+        return [name!, quality ? Number(quality.trim().slice(2)) : 1] as const
+      }),
+  )
+  const quality = (name: string) => weights.get(name) ?? weights.get('*') ?? 0
+  const br = quality('br'),
+    gzip = quality('gzip')
+  return br > 0 && br >= gzip ? 'br' : gzip > 0 ? 'gzip' : undefined
+}

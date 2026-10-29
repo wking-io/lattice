@@ -6,7 +6,16 @@ Prefer WebMCP tools when the browser connection exposes them. Otherwise evaluate
 const context = await window.lattice.read()
 ```
 
-Read before layout work, regardless of visibility. `context.items` contains all configured items, including hidden items and applied preset snapshots. An empty list with no load error means this page has no grid. Ask the user to choose a grid before adding one; inspect comparable running pages in the same project and browser profile to recommend their saved configurations. There is no cross-page listing API: identify comparable routes from the project or its navigation and read those pages. If you cannot inspect them, say so and offer a suitable catalog preset. Do not write browser storage directly.
+Read before layout work, regardless of visibility. `context.items` contains all configured items, including hidden items and applied preset snapshots. An empty list with no load error means this page has no grid. Ask the user to choose a grid before adding one. Discover comparable saved pages without navigating:
+
+```js
+const pages = await window.lattice.listSavedPages() // URL, base/query kind, itemCount, optional error
+const source = await window.lattice.readSavedPage('/products?view=grid')
+```
+
+These read only this browser profile, origin, and project. Source results contain `items`, `kind`, and `inherited`, honoring query inheritance. They are persisted settings, not live geometry or another tab's unsaved edits. Treat `error` as a read failure, not an empty grid. Use route/template context to choose comparable pages. If none can be inspected, offer a suitable catalog preset. Never write browser storage directly.
+
+WebMCP equivalents: `lattice_read({})`, `lattice_pages({})` to list, `lattice_pages({url})` to read saved settings, `lattice_edit({action, expectedRevision?})` for browser edits, and `lattice_presets({action, expectedRevision?})` for shared preset saves/deletes. Discover the actual schemas before calling.
 
 `context.geometry` includes hidden items; each guide and resolved grid has `visible`, the combined item/preset visibility before the master toggle. This flag does not affect its use for layout alignment. Grid starts and sizes are CSS pixels: vertical guides use x from the viewport left; horizontal guides use y from the document top. Compare element `getBoundingClientRect()` x coordinates directly; add `scrollY` to its y coordinates. Resolved grid `start`, `size`, `gutter`, and `count` describe tracks; track n starts at `start + n * (size + gutter)`. Preserve fractional track geometry. Read again after layout changes or viewport changes.
 
@@ -24,6 +33,8 @@ const result = await window.lattice.batch(
 ```
 
 This adds both items as one undo step. Inspect `result.ok`, `applied`, `persisted`, `error`, and `context`; failed persistence can leave an edit applied in memory. Read before retrying uncertain operations.
+
+`execute` and `batch` also accept `{ signal, timeoutMs }`; the default timeout is 15 seconds. Reads bypass pending writes and return current in-memory state. Queued cancellation returns `canceled: true, applied: false, uncertain: false` and prevents later execution. Canceling a dispatched preset request aborts its fetch, but the server may have committed: inspect `uncertain`, `saved`, and `presetId` and reread the catalog before retrying. Cancellation does not undo completed edits. A stalled runtime or disposal can reject the promise with an uncertain-outcome error.
 
 `batch` operations: `add` with `item`; `update` with `id` and `changes`; `remove`, `duplicate`, `unlink`, or `updatePreset` with `id`; `applyPreset` with `presetId` from the catalog. Preserve unrequested items. Preset children cannot be edited until unlinked.
 

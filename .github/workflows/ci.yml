@@ -12,7 +12,10 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run check
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:browser
       - run: npm pack --pack-destination /tmp
       - run: node scripts/verify-package.mjs
+      - run: node scripts/verify-package.mjs
+        env:
+          LATTICE_TEST_VITE: '7'

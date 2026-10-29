@@ -134,7 +134,7 @@ This copies the skill and API reference into `.agents/skills/lattice/` and appen
 
 The skill directs agents to read and align layouts to the page's configured grid even when it is hidden. If no grid exists, agents ask whether to add one, recommending a verified grid from a similar project page first, otherwise a suitable common preset. Grid creation waits for the user's choice; existing grids and visibility are preserved during layout work.
 
-Prefer the running page's **WebMCP** tools: `lattice_read` and `lattice_edit`. Registration is feature-detected on `document.modelContext`. If the browser connection cannot discover them, use the JavaScript fallback:
+Prefer the running page's **WebMCP** tools: `lattice_read` for context, `lattice_pages` for saved-page discovery, `lattice_edit` for browser edits, and `lattice_presets` for shared file writes. Registration is feature-detected on `document.modelContext`. If the browser connection cannot discover them, use the JavaScript fallback:
 
 ```js
 const before = await window.lattice.read()
@@ -149,20 +149,26 @@ const result = await window.lattice.batch(
 
 This is additive and creates one undo step. Results acknowledge model changes and storage outcomes; DOM painting follows on the browser's next frame. Check `ok`, `applied`, `persisted`, and `error`. Preset saves also report `saved` and `presetId`: a file save can succeed while page application or browser persistence fails. Read before retrying an uncertain result. The API remains available while all UI is hidden.
 
+`window.lattice.listSavedPages()` lists stored grids for the current origin and project. `readSavedPage('/another-route')` reads their settings, including hidden items and query inheritance, without navigating. These are persisted settings rather than another page's live geometry.
+
+Reads remain responsive during pending writes. `execute` and `batch` accept `{ signal, timeoutMs }` alongside `expectedRevision`; requests default to 15 seconds. Canceling queued work prevents execution. Aborting a dispatched preset request cannot guarantee the server did not write: check `canceled`, `uncertain`, and `presetId` before retrying. Completed changes are not rolled back by cancellation.
+
 See [API examples and operations](skills/lattice/references/api.md), [agent integration](agent-integration.md), and the exported TypeScript types.
 
 ## Development and status
 
 ```sh
 npm run check          # type checks, core/server tests, package build
-npm run test:browser   # Chromium integration tests
+npm run test:browser   # Chromium, Firefox, and WebKit integration tests
 ```
 
-The packed-consumer check runs with `npm pack --pack-destination /tmp` followed by `node scripts/verify-package.mjs`. It installs the tarball in a temporary project and checks a nested Vite base, built-in omission, inline/file presets, agent setup, production output, and preview isolation.
+The packed-consumer check runs with `npm pack --pack-destination /tmp` followed by `node scripts/verify-package.mjs`. Set `LATTICE_TEST_VITE=7` for the second supported major; the default is Vite 8. It installs the tarball in a temporary project and checks compressed delivery, a nested Vite base, built-in omission, inline/file presets, agent setup, production output, and preview isolation.
 
-If Chromium is missing, run `npx playwright install chromium` first. Browser tests use a separate port and test preset fixture. CI uses Node 24 and Chromium on Linux.
+Install test browsers with `npx playwright install chromium firefox webkit`. Browser tests use a separate port and test preset fixture. CI uses Node 24, all three engines on Linux, and packed consumers on Vite 7 and 8.
 
-Verified locally in Chromium on macOS: panel and JavaScript editing, dragging, shortcuts, persistence, navigation, preset writes/watch updates, cleanup, and failure reporting. Production builds with and without Lattice produce identical application files. The WebMCP adapter is exercised with a registration harness; discovery/invocation through a native external WebMCP agent connection is still unverified. Other browsers, real desktop browser zoom, pinch zoom, and transformed root/body layouts need further coverage before a broad release.
+Verified locally across Chromium, Firefox, and WebKit: panel/API editing, dragging, shortcuts, persistence, navigation, preset writes/watch updates, cleanup, cancellation, saved-page discovery, and transformed root/body layouts. Chromium additionally covers native WebMCP through Playwright's external browser connection (with `--enable-features=WebMCP`), real desktop zoom through the browser extension API, and protocol-emulated pinch zoom. This does not verify every agent connection or physical touch gesture. Real Safari automation remains unchecked because its Remote Automation setting is disabled; WebKit coverage is separate.
+
+The development client is approximately **636 KB minified, 196 KB gzip, or 167 KB Brotli**. The server negotiates precompressed assets. Production builds with and without Lattice still produce identical application files. Build-time size budgets and `dist/bundle-report.json` track regressions; [architecture](ARCHITECTURE.md#bundle-strategy) explains the remaining runtime cost. Shared browser-storage writes across tabs still use last write wins.
 
 - [Product plan](PLAN.md)
 - [Implementation architecture and handoff](ARCHITECTURE.md)

@@ -1,7 +1,7 @@
 import type { Html, HtmlBuilder } from 'foldkit/html'
 import { palette, type Item, type Operation } from '../domain.js'
 import { resolve } from '../geometry.js'
-import { displayedItems, message, uiRequest, type Message, type Model } from './program.js'
+import { displayedItems, message, uiRequest, type Message, type Model } from './model.js'
 import { styles } from './styles.js'
 
 export function view(model: Model, h: HtmlBuilder<Message>): Html {

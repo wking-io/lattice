@@ -69,3 +69,68 @@ export function loadPreferences(storage: StorageLike, projectId: string): Prefer
   }
   return { grids: true, panel: true }
 }
+
+export interface SavedPage {
+  url: string
+  kind: 'base' | 'query'
+  inherited: boolean
+  items: Items
+  error?: string
+}
+export type SavedPageSummary = Omit<SavedPage, 'items' | 'inherited'> & { itemCount: number }
+interface IndexedStorage extends StorageLike {
+  readonly length: number
+  key(index: number): string | null
+}
+export function readSavedPage(
+  storage: StorageLike,
+  url: string,
+  currentUrl: string,
+  projectId: string,
+): SavedPage {
+  const parsed = new URL(url, currentUrl)
+  if (parsed.origin !== new URL(currentUrl).origin)
+    throw new Error('Saved grids are limited to this origin and project.')
+  parsed.hash = ''
+  parsed.searchParams.sort()
+  try {
+    const page = loadPage(storage, parsed.href, projectId)
+    return {
+      url: parsed.href,
+      kind: page.override ? 'query' : 'base',
+      inherited: !!page.queryKey && !page.override && page.baseExists,
+      items: page.items,
+    }
+  } catch (error) {
+    return {
+      url: parsed.href,
+      kind: parsed.search ? 'query' : 'base',
+      inherited: false,
+      items: [],
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+export function listSavedPages(
+  storage: IndexedStorage,
+  currentUrl: string,
+  projectId: string,
+): SavedPageSummary[] {
+  const origin = new URL(currentUrl).origin
+  const projectPrefix = `lattice:v1:${projectId}:`
+  const prefix = `${projectPrefix}${origin}/`
+  const pages: SavedPageSummary[] = []
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index)
+    if (!key?.startsWith(prefix)) continue
+    const url = key.slice(projectPrefix.length)
+    const page = readSavedPage(storage, url, currentUrl, projectId)
+    pages.push({
+      url: page.url,
+      kind: page.kind,
+      itemCount: page.items.length,
+      ...(page.error ? { error: page.error } : {}),
+    })
+  }
+  return pages.sort((a, b) => a.url.localeCompare(b.url))
+}

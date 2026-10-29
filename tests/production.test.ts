@@ -3,7 +3,15 @@ import { build } from 'vite'
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
-import { lattice } from '../src/vite.js'
+import { lattice, clientEncoding } from '../src/vite.js'
+
+it('negotiates compressed clients and respects disabled encodings', () => {
+  expect(clientEncoding('gzip, deflate, br')).toBe('br')
+  expect(clientEncoding('gzip;q=0.8, br;q=0.5')).toBe('gzip')
+  expect(clientEncoding('br;q=0, *;q=1')).toBe('gzip')
+  expect(clientEncoding('br;q=0, gzip;q=0')).toBeUndefined()
+  expect(clientEncoding('identity')).toBeUndefined()
+})
 
 it('produces identical application files with and without the plugin', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'lattice-production-'))

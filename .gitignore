@@ -8,3 +8,4 @@ playground/lattice.presets.json
 playground/.lattice-test-presets.json*
 *.tsbuildinfo
 *.tgz
+src/generated/

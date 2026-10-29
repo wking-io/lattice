@@ -50,32 +50,18 @@ export const Item = Schema.Union([Leaf, AppliedPreset])
 export type Item = typeof Item.Type
 export const Items = Schema.Array(Item)
 export type Items = typeof Items.Type
-export type LeafInput =
-  | {
-      kind: 'columns' | 'rows'
-      id?: string
-      name?: string
-      visible?: boolean
-      color?: string
-      opacity?: number
-      count?: number | 'auto'
-      alignment?: 'stretch' | 'min' | 'center' | 'max'
-      gutter?: number
-      margin?: number
-      size?: number
-      offset?: number
-    }
-  | {
-      kind: 'individual'
-      id?: string
-      name?: string
-      visible?: boolean
-      color?: string
-      opacity?: number
-      axis?: 'vertical' | 'horizontal'
-      unit?: 'px' | '%'
-      position?: number
-    }
+const optionalFields = <F extends Schema.Struct.Fields>(fields: F) =>
+  Object.fromEntries(
+    Object.entries(fields).map(([key, field]) => [key, Schema.optionalKey(field)]),
+  ) as {
+    [K in keyof F]: Schema.optionalKey<F[K]>
+  }
+export const LeafInput = Schema.Union([
+  Schema.Struct({ ...optionalFields(generated), kind: Schema.Literal('columns') }),
+  Schema.Struct({ ...optionalFields(generated), kind: Schema.Literal('rows') }),
+  Schema.Struct({ ...optionalFields(Individual.fields), kind: Schema.Literal('individual') }),
+])
+export type LeafInput = typeof LeafInput.Type
 export interface PresetDefinition {
   id: string
   name: string
@@ -163,14 +149,8 @@ export function applied(preset: CatalogPreset, id: string = uid()): Item {
     items: preset.items.map((i) => ({ ...i, id: uid() })),
   }
 }
-export type Operation =
-  | { type: 'add'; item: LeafInput }
-  | { type: 'update'; id: string; changes: Record<string, unknown> }
-  | { type: 'remove' | 'duplicate' | 'unlink' | 'updatePreset'; id: string }
-  | { type: 'applyPreset'; presetId: string }
-
-const OperationSchema = Schema.Union([
-  Schema.Struct({ type: Schema.Literal('add'), item: Schema.Unknown }),
+export const OperationSchema = Schema.Union([
+  Schema.Struct({ type: Schema.Literal('add'), item: LeafInput }),
   Schema.Struct({
     type: Schema.Literal('update'),
     id: identifier,
@@ -182,8 +162,13 @@ const OperationSchema = Schema.Union([
   }),
   Schema.Struct({ type: Schema.Literal('applyPreset'), presetId: Schema.String }),
 ])
+export type Operation = typeof OperationSchema.Type
+export const Operations = Schema.Array(OperationSchema).check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(500),
+)
 export function transact(items: Items, raw: unknown, catalog: Catalog): Items {
-  const operations = decode(Schema.Array(OperationSchema), raw)
+  const operations = decode(Operations, raw)
   if (!operations.length || operations.length > 500)
     throw new Error('Provide between 1 and 500 operations.')
   let next = [...items]
