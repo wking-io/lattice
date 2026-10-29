@@ -4,7 +4,7 @@ Visual page grids for local web development. Layer columns, rows, and draggable 
 
 Built with **Effect 4 and Foldkit**, isolated in a shadow root. The host application can use any framework. The Vite plugin injects Lattice only during development; production builds contain no Lattice runtime, styles, or configuration.
 
-The package is **`@riff-refine/lattice`**, licensed under [MIT](LICENSE). It has not yet been published on npm.
+The package is **`@riff-refine/lattice`**, licensed under [MIT](LICENSE). See the [0.1.0 release](https://github.com/wking-io/lattice/releases/tag/v0.1.0) for release artifacts and publication status.
 
 ## Try it
 
@@ -19,7 +19,13 @@ Open the playground at `http://127.0.0.1:5173`. The panel starts visible with an
 
 ## Install in another project
 
-Until a package is published, build a local tarball from this repository:
+Install a published npm release:
+
+```sh
+npm install --save-dev @riff-refine/lattice@0.1.0
+```
+
+Alternatively, download the package tarball from the GitHub release or build one from this repository:
 
 ```sh
 npm pack

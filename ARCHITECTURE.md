@@ -1,6 +1,6 @@
 # Lattice implementation architecture
 
-Status: architecture review fixes and release metadata implemented; publishing and real Safari validation remain. Updated 2026-10-29.
+Status: architecture for version 0.1.0; remaining environment checks are documented below. Updated 2026-10-29.
 
 Read [PLAN.md](PLAN.md) for product decisions and [README.md](README.md) for installation. This document describes the code another agent will take over.
 
@@ -143,4 +143,4 @@ The largest remaining costs are Effect's schema/runtime/stream machinery and Fol
 
 `npm run check` covers types, strict inputs, geometry, history/query semantics, saved-page isolation, file conflicts/invalid data/symlinks, setup, production exclusion, encoding negotiation, and building. `npm run test:browser` runs the shared integration suite in Chromium, Firefox and WebKit. It covers pending reads, queued/active cancellation, lost responses, discovery, transformed roots, and existing panel/API behavior. Chromium-only tests cover native WebMCP, true desktop zoom through the extension API, and protocol-emulated pinch zoom. Packed-consumer tests verify both supported Vite majors and decode each supported HTTP encoding to the original artifact.
 
-Package identity, public access metadata, and the MIT license are prepared; publication is a separate release action. Real Safari automation remains unverified because its Remote Automation setting is disabled; Playwright WebKit passing is not a Safari sign-off. Physical touch gestures also remain a manual check. Product backlog includes element grids, breakpoints, snapping, touch refinement, overlap selection, configurable shortcuts/URL matching, and cross-tab reconciliation. Extend the existing state owner rather than adding a second store.
+The release uses `@riff-refine/lattice`, public npm access, and the MIT license. Real Safari automation remains unverified because its Remote Automation setting is disabled; Playwright WebKit passing is not a Safari sign-off. Physical touch gestures also remain a manual check. Product backlog includes element grids, breakpoints, snapping, touch refinement, overlap selection, configurable shortcuts/URL matching, and cross-tab reconciliation. Extend the existing state owner rather than adding a second store.

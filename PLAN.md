@@ -1,9 +1,9 @@
 # Lattice plan
 
-Status: implementation, architecture review fixes, and release metadata complete; publishing and real Safari validation remain. See README.md and ARCHITECTURE.md for the implemented interface and verification limits.
+Status: version 0.1.0 scope and architecture review fixes complete. See the GitHub release for distribution status and README.md and ARCHITECTURE.md for verification limits.
 Updated: 2026-10-29.
 Project name: Lattice. Public repository: `wking-io/lattice`.
-Package: `@riff-refine/lattice`. License: MIT. No npm release has been published yet.
+Package: `@riff-refine/lattice`. Version: `0.1.0`. License: MIT.
 
 ## Purpose
 
@@ -208,7 +208,6 @@ Watch the JSON file and update the catalog in connected pages when it changes. R
 
 ## Remaining release decisions and checks
 
-- Publish `@riff-refine/lattice` as a public MIT-licensed package when a release is requested; metadata is prepared, but no package has been published.
 - Real Safari validation requires its Remote Automation setting; WebKit coverage does not establish Safari support. Physical touch gestures remain a manual check.
 - Whether to add cross-tab reconciliation before a broader release; current page storage uses last write wins.
 
