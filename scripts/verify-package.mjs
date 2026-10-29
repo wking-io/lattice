@@ -10,7 +10,10 @@ import { chromium } from '@playwright/test'
 import { get } from 'node:http'
 import { gunzipSync, brotliDecompressSync } from 'node:zlib'
 const run = promisify(execFile)
-const tarball = path.resolve(process.argv[2] ?? '/tmp/lattice-0.1.0.tgz')
+const metadata = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+const packageName = metadata.name
+const filename = `${packageName.replace(/^@/, '').replace('/', '-')}-${metadata.version}.tgz`
+const tarball = path.resolve(process.argv[2] ?? path.join('/tmp', filename))
 // Vite 7/Rollup compares real entry paths with root; macOS /var aliases /private/var.
 const root = await realpath(await mkdtemp(path.join(tmpdir(), 'lattice-consumer-')))
 let server, preview, browser
@@ -21,7 +24,7 @@ try {
       private: true,
       type: 'module',
       devDependencies: {
-        lattice: `file:${tarball}`,
+        [packageName]: `file:${tarball}`,
         vite: process.env.LATTICE_TEST_VITE ?? '8.3.5',
       },
     }),
@@ -31,6 +34,13 @@ try {
     '<!doctype html><html><head><title>Consumer</title></head><body><h1>Consumer project</h1></body></html>',
   )
   await run('npm', ['install', '--no-audit', '--no-fund'], { cwd: root })
+  const packageRoot = path.join(root, 'node_modules', packageName)
+  const installed = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'))
+  assert.equal(installed.name, packageName)
+  assert.equal(installed.license, 'MIT')
+  assert.equal(installed.publishConfig.access, 'public')
+  assert.notEqual(installed.private, true)
+  assert.match(await readFile(path.join(packageRoot, 'LICENSE'), 'utf8'), /MIT License/)
   await run(process.execPath, [path.join(root, 'node_modules/.bin/lattice'), 'setup'], {
     cwd: root,
   })
@@ -42,9 +52,12 @@ try {
   const vite = await import(
     pathToFileURL(path.join(root, 'node_modules/vite/dist/node/index.js')).href
   )
-  const { lattice } = await import(
-    pathToFileURL(path.join(root, 'node_modules/lattice/dist/vite.js')).href
+  const consumerEntry = path.join(root, 'lattice-integration.mjs')
+  await writeFile(
+    consumerEntry,
+    `export { lattice } from ${JSON.stringify(`${packageName}/vite`)};\n`,
   )
+  const { lattice } = await import(pathToFileURL(consumerEntry).href)
   const options = {
     builtInPresets: false,
     presets: [{ id: 'fixture', name: 'Fixture', items: [{ kind: 'columns', count: 6 }] }],
@@ -58,7 +71,7 @@ try {
     server: { host: '127.0.0.1', port: 0 },
   })
   await server.listen()
-  const originalClient = await readFile(path.join(root, 'node_modules/lattice/dist/client.js'))
+  const originalClient = await readFile(path.join(packageRoot, 'dist/client.js'))
   for (const encoding of ['br', 'gzip', 'identity']) {
     const response = await new Promise((resolve, reject) => {
       get(
@@ -152,7 +165,7 @@ try {
   assert.ok(endpoint.status() >= 400)
   assert.deepEqual(errors, [])
   console.log(
-    `Packed install passed on Vite ${vite.version}: compressed delivery, nested Vite base, disabled built-ins, inline/file presets, agent setup, zero production footprint, and no preview runtime or write route.`,
+    `${packageName} packed install passed on Vite ${vite.version}: public MIT metadata, scoped plugin import, compressed delivery, nested Vite base, disabled built-ins, inline/file presets, agent setup, zero production footprint, and no preview runtime or write route.`,
   )
 } finally {
   await browser?.close()

@@ -1,12 +1,12 @@
 # Lattice implementation architecture
 
-Status: architecture review fixes implemented; package identity/license and real Safari validation remain. Updated 2026-10-28.
+Status: architecture review fixes and release metadata implemented; publishing and real Safari validation remain. Updated 2026-10-29.
 
 Read [PLAN.md](PLAN.md) for product decisions and [README.md](README.md) for installation. This document describes the code another agent will take over.
 
 ## Runtime and package boundary
 
-One package contains a Node-side Vite plugin and a separately bundled browser client. Effect `4.0.0`, platform-browser `4.0.0`, and Foldkit `0.169.0` are pinned to Foldkit's exact peer dependencies. Vite 8 is the development/test toolchain. Packed-consumer checks cover both Vite 7 and 8.
+The public scoped package `@riff-refine/lattice` uses the MIT license and contains a Node-side Vite plugin and a separately bundled browser client. Its CLI binary remains `lattice`. Effect `4.0.0`, platform-browser `4.0.0`, and Foldkit `0.169.0` are pinned to Foldkit's exact peer dependencies. Vite 8 is the development/test toolchain. Packed-consumer checks cover both Vite 7 and 8.
 
 `scripts/build.mjs` bundles the browser entry and its Effect/Foldkit dependencies into `dist/client.js`. Node entry points keep dependencies external. TypeScript emits declarations. The client is about 636 KB minified, 196 KB gzip, and 167 KB Brotli, and is development tooling only. The host application's Effect/Foldkit versions do not supply this runtime.
 
@@ -143,4 +143,4 @@ The largest remaining costs are Effect's schema/runtime/stream machinery and Fol
 
 `npm run check` covers types, strict inputs, geometry, history/query semantics, saved-page isolation, file conflicts/invalid data/symlinks, setup, production exclusion, encoding negotiation, and building. `npm run test:browser` runs the shared integration suite in Chromium, Firefox and WebKit. It covers pending reads, queued/active cancellation, lost responses, discovery, transformed roots, and existing panel/API behavior. Chromium-only tests cover native WebMCP, true desktop zoom through the extension API, and protocol-emulated pinch zoom. Packed-consumer tests verify both supported Vite majors and decode each supported HTTP encoding to the original artifact.
 
-Before publishing: finalize package name/license. Real Safari automation remains unverified because its Remote Automation setting is disabled; Playwright WebKit passing is not a Safari sign-off. Physical touch gestures also remain a manual check. Product backlog includes element grids, breakpoints, snapping, touch refinement, overlap selection, configurable shortcuts/URL matching, and cross-tab reconciliation. Extend the existing state owner rather than adding a second store.
+Package identity, public access metadata, and the MIT license are prepared; publication is a separate release action. Real Safari automation remains unverified because its Remote Automation setting is disabled; Playwright WebKit passing is not a Safari sign-off. Physical touch gestures also remain a manual check. Product backlog includes element grids, breakpoints, snapping, touch refinement, overlap selection, configurable shortcuts/URL matching, and cross-tab reconciliation. Extend the existing state owner rather than adding a second store.

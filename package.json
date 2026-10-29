@@ -1,7 +1,10 @@
 {
-  "name": "lattice",
+  "name": "@riff-refine/lattice",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Development-only page grids for people and agents",
   "repository": {
     "type": "git",
@@ -14,6 +17,7 @@
   "files": [
     "dist",
     "skills",
+    "LICENSE",
     "README.md",
     "agent-integration.md"
   ],

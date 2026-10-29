@@ -4,7 +4,7 @@ Visual page grids for local web development. Layer columns, rows, and draggable 
 
 Built with **Effect 4 and Foldkit**, isolated in a shadow root. The host application can use any framework. The Vite plugin injects Lattice only during development; production builds contain no Lattice runtime, styles, or configuration.
 
-This is an initial implementation, not a published npm release. Package identity and licensing remain open.
+The package is **`@riff-refine/lattice`**, licensed under [MIT](LICENSE). It has not yet been published on npm.
 
 ## Try it
 
@@ -28,14 +28,14 @@ npm pack
 In the consuming project:
 
 ```sh
-npm install --save-dev /path/to/lattice/lattice-0.1.0.tgz
+npm install --save-dev /path/to/lattice/riff-refine-lattice-0.1.0.tgz
 ```
 
 Add the plugin to `vite.config.ts`. Do not import the browser runtime into application code.
 
 ```ts
 import { defineConfig } from 'vite'
-import { lattice } from 'lattice/vite'
+import { lattice } from '@riff-refine/lattice/vite'
 
 export default defineConfig({
   plugins: [lattice()],
