@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lattice playground</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: #20251c;
+        background: #f3f2e9;
+        font:
+          18px/1.6 system-ui,
+          sans-serif;
+      }
+      main {
+        margin: 64px 48px;
+      }
+      .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+      h1 {
+        font-size: clamp(54px, 8vw, 128px);
+        letter-spacing: -0.07em;
+        line-height: 0.95;
+        font-weight: 500;
+        max-width: 920px;
+        margin: 110px 0 40px;
+      }
+      .intro {
+        max-width: 560px;
+        margin-left: auto;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin: 100px 0;
+      }
+      article {
+        padding: 24px;
+        min-height: 260px;
+        border-top: 1px solid #828977;
+        background: #e5e8db;
+      }
+      h2 {
+        font-size: 22px;
+        font-weight: 500;
+      }
+      .specimen {
+        border-top: 1px solid;
+        padding-top: 24px;
+        min-height: 900px;
+      }
+      button,
+      input {
+        font: inherit;
+        padding: 10px 16px;
+      }
+      @media (max-width: 700px) {
+        main {
+          margin: 32px 24px;
+        }
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="label">Lattice / Development playground</div>
+      <h1>A place for<br />every line.</h1>
+      <p class="intro">
+        Explore columns, rows, and free guides over a real page. Try the 12-column preset with an
+        8px baseline, then resize this window.
+      </p>
+      <div class="cards">
+        <article>
+          <div class="label">01 / Structure</div>
+          <h2>See the rhythm.</h2>
+          <p>Layer several grids without changing the underlying layout.</p>
+        </article>
+        <article>
+          <div class="label">02 / Precision</div>
+          <h2>Move one line.</h2>
+          <p>Individual guides use pixels or percentages. Hold Alt to duplicate while dragging.</p>
+        </article>
+        <article>
+          <div class="label">03 / Context</div>
+          <h2>Share the intent.</h2>
+          <p>Agents can read and edit the same settings through WebMCP or window.lattice.</p>
+        </article>
+      </div>
+      <section class="specimen">
+        <div class="label">A longer page / Baselines continue below the fold</div>
+        <h2>Keep the page interactive.</h2>
+        <button id="host-button">Host button</button>
+        <input aria-label="Host input" placeholder="Type here" />
+        <p id="click-count">0 clicks</p>
+        <a href="?view=alternate">Open query variation</a> · <a href="/second">Another page</a>
+      </section>
+    </main>
+    <script type="module">
+      let count = 0
+      document.querySelector('#host-button').addEventListener('click', () => {
+        document.querySelector('#click-count').textContent = `${++count} clicks`
+      })
+    </script>
+  </body>
+</html>

@@ -1,167 +1,105 @@
-# Lattice architecture
+# Lattice implementation architecture
 
-Status: architecture discussion in progress; no runtime implementation.
-Updated: 2026-10-28.
+Status: initial implementation complete; release validation remains. Updated 2026-10-28.
 
-[PLAN.md](PLAN.md) defines product behavior. This document records the technology direction and proposed implementation design for handoff. Proposed choices below still need discussion or verification.
+Read [PLAN.md](PLAN.md) for product decisions and [README.md](README.md) for installation. This document describes the code another agent will take over.
 
-## Technology direction
+## Runtime and package boundary
 
-- **Vite:** confirmed as the first installation target.
-- **Effect v4 and Foldkit:** requested stack; the current upstream manifests support this combination.
-- **TypeScript:** proposed implementation language, with a browser runtime independent of the consuming project's UI framework.
+One package contains a Node-side Vite plugin and a separately bundled browser client. Effect `4.0.0`, platform-browser `4.0.0`, and Foldkit `0.169.0` are pinned to Foldkit's exact peer dependencies. Vite 8 is the development/test toolchain; the declared plugin peer range is Vite 7–8, with Vite 7 not yet separately verified.
 
-On 2026-10-28, Foldkit's main-branch package manifest identifies version `0.169.0` and exact peer dependencies on `effect@4.0.0` and `@effect/platform-browser@4.0.0`. Effect 4 has a stable release; Foldkit remains pre-1.0. Verify published packages at implementation time, pin a compatible set, and commit the lockfile. No dependencies have been installed or integration tested in this repository.
+`scripts/build.mjs` bundles the browser entry and its Effect/Foldkit dependencies into `dist/client.js`. Node entry points keep dependencies external. TypeScript emits declarations. The client is about 660 KB minified before compression and is development tooling only. The host application's Effect/Foldkit versions do not supply this runtime.
 
-Sources: [Foldkit manifest](https://github.com/foldkit/foldkit/blob/main/packages/foldkit/package.json), [Effect release status](https://effect.website/blog/effect-v4-rc-september-recap), [Foldkit project status](https://github.com/foldkit/foldkit#readme).
+The plugin uses `apply: 'serve'` and injects a module through `transformIndexHtml` only while an actual development server exists. Application source imports no runtime. Preview has no injection or custom routes. A production test compares every output file against the same build without the plugin.
 
-## Proposed state ownership
-
-Run Lattice as one embedded Foldkit program. One Model owns current grid configuration, a loaded projection of the preset catalog, viewing preferences, page measurements, transient interaction state, and undo/redo history. Each project preset's source configuration is authoritative: inline Vite options or the shared JSON file. The host website does not need to use Foldkit or Effect.
-
-All edits enter the same update flow. Keep domain rules in pure functions called by update; do not introduce another mutable grid store that must be synchronized with Foldkit.
+## State and operation flow
 
 ```mermaid
 flowchart LR
-  Panel[Panel and pointer events] --> Update[Foldkit update and grid rules]
-  Agent[WebMCP or JavaScript request] --> Bridge[Lattice interface]
-  Bridge --> Update
-  Browser[Page measurements and URL changes] --> Update
-  Update --> Model[Single Lattice Model]
-  Model --> Geometry[Pure geometry calculation]
-  Geometry --> View[Overlay view]
+  Panel[Panel and pointer events] --> Port[Foldkit messages and ports]
+  Agent[WebMCP or window.lattice] --> Port
+  Browser[Measurements and navigation] --> Port
+  Port --> Update[Single update function]
+  Update --> Model[Foldkit Model]
+  Model --> Geometry[Pure geometry]
+  Geometry --> View[Shadow DOM overlay]
   Update --> Commands[Effect commands]
-  Commands --> Storage[Browser storage]
-  Commands --> Server[Local Vite preset operations]
-  Server --> File[Repository preset configuration]
-  File --> Watcher[File watcher and catalog events]
-  Watcher --> Update
-  Server --> Update
+  Commands --> LocalStorage[Browser persistence]
+  Commands --> Vite[Preset repository endpoint]
+  Vite --> File[Project JSON file]
   Commands --> Update
-  Model --> Response[Context and operation results]
-  Response --> Bridge
+  Update --> Results[Correlated result port]
 ```
 
-Foldkit's [architecture](https://foldkit.dev/core/architecture) provides Model, Message, update, Commands, and scoped subscriptions. Effect supplies schema validation, fallible browser operations, and resource cleanup. Geometry is ordinary deterministic calculation; it does not need an Effect runtime.
+`browser/program.ts` owns the sole application model through Foldkit. It contains page state, catalog projection, preferences, measurements, history, selections, input drafts, pending requests, and drag previews. `Runtime.makeElement` and `Runtime.embed` mount inside a shadow root. The mount has a unique ID, which Foldkit requires even in embedded mode. Foldkit DevTools are disabled.
 
-## Proposed modules
+Panel actions and API requests use the same validated operations. Mutating requests are serialized while persistence or a preset write is pending. Each request carries an ID and originating URL scope; optional `expectedRevision` rejects stale edits. Batch validation completes before a new configuration is committed. The result port acknowledges completion after storage, not merely port acceptance. Rendering follows on Foldkit's next animation frame.
 
-| Module | Responsibility |
-| --- | --- |
-| Domain | Item schemas, preset snapshots, validated operations, and visibility invariants. No DOM or storage access. |
-| Geometry | Resolve settings against measured width and height. Return geometry with item ownership. Save source settings, not derived positions. |
-| Program | Foldkit Model and update flow; coordinate domain changes, transient interactions, and commands. |
-| Browser | Measurements, URL observation, pointer/keyboard events, and overlay rendering. Scope listeners and observers to the runtime. |
-| Browser persistence | Versioned applied-page configuration, base/query resolution, viewing preferences, and recovery from storage errors. |
-| Preset repository | Server-side project preset loading, validation, file writes, conflict handling, and change notifications. |
-| Agent adapters | WebMCP and ordinary JavaScript calls mapped into the same domain operations and context projection. |
-| Vite adapter | Development-only injection, preset-operation middleware, file watching, catalog notifications, and teardown. No browser runtime imports from the consuming application's source. |
+Measurements and navigation can arrive during IO. A preset save captures page identity and revision. Its response applies the saved snapshot only if that origin remains current and unchanged; otherwise it reports `saved: true, applied: false`. Browser writes capture their target keys. Navigation clears histories and cancels previews. Queued requests for an old page are rejected.
 
-These are internal modules in one initial package, not independently published packages.
+## Module map
 
-## Preset catalog and persistence scopes
+| File                               | Responsibility                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `src/domain.ts`                    | Effect schemas, identity, defaults, snapshot copying, validated transactions. |
+| `src/geometry.ts`                  | CSS-pixel formulas, deduplication, viewport culling, density limits.          |
+| `src/state.ts`                     | Edits, session history, preset capture/application, context projection.       |
+| `src/storage.ts`                   | Versioned localStorage, URL scopes, query copy-on-write.                      |
+| `src/presets.ts`                   | File validation, source namespacing, built-ins and snapshot revisions.        |
+| `src/server/preset-repository.ts`  | Loading, validation, locking, revisions, atomic file replacement.             |
+| `src/vite.ts`                      | Dev injection, local-only middleware, watching and catalog events.            |
+| `src/browser/program.ts`           | Model/update/commands, sequencing and acknowledgments.                        |
+| `src/browser/view.ts`, `styles.ts` | Floating panel and overlay, field controls and preset selection.              |
+| `src/browser/api.ts`, `actions.ts` | Public types, WebMCP adapter/schema, strict action validation.                |
+| `src/client.ts`                    | Lifecycle, browser listeners, measurement, fetch/storage services, JS bridge. |
+| `src/setup.ts`                     | Skill/reference installation and additive AGENTS.md pointer.                  |
 
-Confirmed: reusable project presets come from inline Vite plugin configuration and a shared `lattice.presets.json` file in the consuming repository. Inline definitions are read-only in the panel; panel saves write the JSON file through the local development server and create it on the first save if absent. Both sources load for everyone using that project configuration. This replaces the earlier origin-wide browser preset library. Applied grid configurations and viewing preferences remain browser-local.
+Internal Foldkit messages/model use typed declaration schemas. Untrusted operations and file contents use strict structural Effect schemas. Public callers receive serializable context, never the Model or Effect values. UUIDs are generated for creation/copy operations and request identities; geometry has no side effects.
 
-The six built-ins and read-only built-in behavior are confirmed; plugin configuration can exclude them. See [PLAN.md](PLAN.md) for their contents. Team members receive repository preset changes through normal Git workflows; connected pages on one development server can receive live catalog notifications.
+## Geometry and interaction
 
-Proposed storage design:
+Fixed-position DOM lines draw only the current viewport. X starts at the viewport's left edge using `documentElement.clientWidth`; Y starts at the document top, subtracting `scrollY` for rendering. The fixed overlay adds no layout height. Generated boundaries and percentages retain fractions. Pixel drags round the final coordinate after subtracting the grab offset.
 
-- Use `builtInPresets: boolean` (default `true`), `presetsFile: string` (default `./lattice.presets.json`, resolved against the Vite project root), and `presets: readonly PresetDefinition[]` (default empty). Source choices are confirmed; option names, exact schema, and path resolution are proposed.
-- Validate inline definitions when plugin configuration loads, using the same domain schema as file definitions. Normalize them to serializable data for the browser. Preserve explicit, stable IDs across configuration reloads. Never write inline definitions back into executable configuration from panel or agent operations.
-- Load the dedicated file on the server, validate it with the shared preset schema, and send a serializable catalog to the browser. A missing file means an empty project catalog until the first successful save. An invalid or unreadable existing file is an error and must not be replaced with an empty file.
-- Keep schema version, stable preset IDs, names, and flat item definitions in the project file. Derive catalog/preset revisions from validated contents for conflict checks and explicit updates. Use deterministic formatting to keep Git diffs readable.
-- Combine three sources through one catalog interface: built-in, inline configuration, and JSON file. Distinguish their source and edit capability in panel/agent metadata. Namespace stable IDs by source; reject duplicate IDs within a source rather than silently overwriting. Duplicate display names do not identify a preset.
-- Keep built-in definitions separate from project configuration. When disabled, omit them from the available catalog and served catalog definitions; inline and file presets remain. Source does not introduce another grid-item type.
-- Enforce built-in/inline read-only status in domain and server operations, not just panel controls. Customizing an applied built-in or inline preset uses unlink followed by save to a new file-backed definition. Editing or deleting an inline definition requires editing its source configuration.
-- Applying any source creates the same preset item: copied underlying items plus source identity/revision. Persist that snapshot in browser page state. File/config changes, disabled built-ins, or package upgrades do not silently modify applied grids; the existing explicit Update from preset action handles updates. A missing source leaves its snapshot usable.
-- Namespace browser page storage by project identity as well as origin and URL to prevent collisions when unrelated local projects reuse an address. Preset definitions themselves follow the configured project file, including when the development server's port changes. Project-identity derivation remains to be specified.
-- Baseline presets use ordinary row items with automatic count and no gutter, rather than storing thousands of individual lines or introducing another item type. Derive their geometry from current document height.
-- Agents list and mutate the catalog through Lattice's supported interface. File-backed saves use the same local-server operations as panel saves and report their actual persistence outcome.
+Stretch size is `(length - 2 * margin - (count - 1) * gutter) / count`. Fixed items use size, count, alignment, and applicable offset. Auto count fills the available dimension with complete sections; center ignores offset. Auto plus stretch is rejected. Negative stretch size warns and draws nothing. Shared boundaries within an item are deduplicated to numeric tolerance.
 
-### File loading and saving
+Culling bounds work on long pages. A maximum of 5,000 visible lines and 10,000 loop iterations per item prevents excessive density from hanging the page. Context includes analytical formulas and a `truncated` flag; source settings remain intact. Derived line arrays are never persisted.
 
-Use Vite's [development-server middleware](https://vite.dev/guide/api-plugin.html#configureserver) for narrowly scoped preset reads and mutations. Use its [custom client/server events](https://vite.dev/guide/api-plugin.html#client-server-communication) to notify connected pages that the catalog revision changed. These are proposed Lattice operations built on documented Vite hooks, not features already implemented here.
+Standalone individual guides have 9px transparent hit areas around 1px strokes. Previews are transient; drag completion creates one history entry, cancellation none. Alt/Option creates an independent duplicate. Generated and preset lines have no pointer handlers. Command/Control disables guide hit areas. Keyboard ownership uses composed event paths through the shadow root.
 
-Proposed save flow:
+The hidden panel has no launcher. Master grid visibility gates panel visibility while preserving its preference. Panel position is session-only. Numeric drafts live in the Model so measurement renders do not erase partially typed fields.
 
-1. Capture the selected page items and current page/catalog revisions; flatten included presets into copied underlying items and assign a stable preset ID.
-2. Send a validated create/update operation to the local development server with an expected catalog revision and retry identity.
-3. The server reloads and validates the current file, detects stale requests, and serializes writes to that file. Create the file only when it is absent. Write through a temporary file and replace atomically to avoid partial JSON. Coordinate multiple server processes using the same file; an atomic rename alone does not prevent concurrent edits from being overwritten.
-4. Return the saved preset and resulting revision only after the write completes. Retries use the same identity so a lost response cannot silently create duplicate presets. Preserve existing data and return a conflict/error if safe application cannot be established.
-5. Apply the saved preset to the initiating page through the ordinary update flow and persist its page configuration. If navigation or other edits invalidate the captured selection, report that the definition was saved but the page application was not performed; do not apply it to a different page.
-6. Notify connected clients and reload the catalog. Watch manual edits, creation, and deletion, including when the file was missing at startup. Keep applied snapshots intact. Invalid manual edits show an error and may retain a clearly marked last-valid catalog; writes remain blocked until the source is valid.
+## Storage and history
 
-A repository write and browser-state update are separate commits. Report saved/applied/persisted outcomes accurately and define retry/recovery behavior; do not promise an atomic transaction spanning the filesystem and browser storage. Ordinary multi-item page edits can still be atomic and occupy one undo step. Undo of the repository definition itself remains an explicit product decision.
+Keys contain schema version, project ID, origin, path, and optional canonical query. The default project ID hashes the real Vite root; config can provide a stable ID. Query parameters are stably sorted by key; duplicate-value order is retained. Hashes are ignored.
 
-### Local write scope
+Query URLs inherit an existing base configuration. The first configuration edit creates an independent override. A query URL with no base creates the base first. Individual visibility is an edit; master visibility is separate. Undo can remove a newly created query override. Reset-to-base removes the override and clears history. Page loads clear both histories; at most 100 snapshots remain in memory.
 
-The server, not a browser-supplied path, chooses the configured preset file. Restrict writes to that approved project file, reject path traversal and out-of-scope symlink targets, validate operation schemas and payload sizes, and gate mutations on the allowed development origin and a per-server write token. Fail closed for unsupported remote exposure. Register no mutation endpoints in build or production preview.
+Storage errors leave edits in memory and return `persisted: false`. Invalid stored data is not silently overwritten: the panel offers an explicit reset. There is no cross-tab reconciliation; separate tabs can overwrite the same page key. This is a follow-up distinct from repository presets.
 
-Implement these checks in the preset repository/middleware. Vite's [`server.fs` settings](https://vite.dev/config/server-options.html#server-fs-strict) describe file serving and do not themselves authorize or constrain custom mutation handlers. Keep Node filesystem dependencies out of browser entry points. The exact hostname/LAN policy still needs resolution before release.
+Undo of **Save preset** restores previous page items and retains the repo definition. Redo restores the snapshot without another write. Shared definition deletion is explicit and outside page undo.
 
-Open decisions: final schema and path resolution, color defaults, editing/deleting file definitions, display-name collisions, and undo scope for repository mutations. Implement and test stale-write detection, concurrent-server coordination, and failure recovery before enabling saves.
+## Preset repository
 
-## Embedding and lifecycle
+Built-ins, inline options, and the dedicated JSON file share one catalog. IDs are namespaced; inline/built-in entries are read-only. Files use `{ version: 1, presets: [{ id, name, items }] }` with flat leaf items. Missing files mean an empty file catalog; invalid files block writes.
 
-Use `Runtime.makeElement` and `Runtime.embed` for Lattice's isolated mount. Foldkit documents that this mode stays within its container without taking ownership of the page title or URL. Its embed handle provides typed ports and disposal. See [embedding](https://foldkit.dev/core/embedding).
+Applied presets copy source settings, identity, and revision into browser storage. Source changes/removal leave those copies intact. Unlink releases underlying items with effective visibility; explicit update replaces a snapshot from its current source.
 
-Propose an HTMLElement mount inside a shadow root to isolate styles. Verify Foldkit rendering, focus, and pointer handling in this arrangement in the first integration slice. Renderer choice and detailed coordinate handling remain open.
+The server owns the file path, restricted inside Vite's root with no symlinks along the relative path. Requests are limited to 1 MiB and protected by loopback host checks, origin checks, and a per-server token. No browser-supplied path is accepted. Exclusive lock creation prevents simultaneous writers across servers; competing operations get a conflict. Stale revisions use SHA-256 of raw file contents. A temporary file is flushed and renamed after checking the file again.
 
-Hiding the panel removes its visible UI while the program remains alive for shortcuts, state, and agent access. Uninstalling the overlay or replacing it during hot reload disposes the entire program, observers, listeners, pending work, and tool registrations. Do not start a second independent Effect runtime per adapter or action.
+An identical save under the same stable preset ID is idempotent, including after a lost response. A newly dispatched create action gets a new ID: inspect uncertain results before repeating it. Atomic rename prevents partial files, but external editors do not honor the lock; it is not a compare-and-swap against uncooperative writers. Crashed servers can leave a lock requiring explicit recovery.
 
-## Coordinate units and zoom
+Repository and browser saves are separate commits. Results expose `saved`, `applied`, and `persisted` separately. File watching notifies clients through Vite custom events. Invalid manual edits retain the last valid catalog with an error; source snapshots remain usable.
 
-Confirmed: all pixel-based coordinates and grid dimensions use CSS pixels. Every line is 1 CSS pixel thick. Browser zoom scales their apparent thickness with the page; there is no constant-device-pixel hairline mode in v1.
+## Agent and lifecycle boundaries
 
-Keep source values in their original units. Browser zoom must not rewrite a stored pixel position, gutter, or margin. Recompute stretch geometry and percentage positions against current CSS-pixel dimensions when those dimensions change.
+`window.lattice` provides `read`, `execute`, `batch`, and `dispose`. Context includes settings, dimensions, scope, visibility, history counts, catalog, and resolved viewport geometry. Strict action/domain validation applies to both UI and agents. Requests time out after 15 seconds with an uncertain-outcome error; timeout does not roll back writes.
 
-Confirmed drag precision: individual guides stored in pixels snap to the nearest whole CSS pixel when dragged, including Option/Alt duplication. Apply snapping to the resulting guide position after coordinate conversion and drag-offset calculation. Do not round source configurations merely because they were loaded, or apply this drag rule to generated grids and percentage guides.
+WebMCP registers `lattice_read` and `lattice_edit` via feature-detected `document.modelContext.registerTool`. Abort signals remove registrations. The JS fallback remains active while hidden. Adapter tests use a harness; native external agent discovery remains to verify.
 
-Proposed renderer rule: perform measurements and geometry calculations in the same CSS coordinate system without multiplying logical positions by device pixel ratio. If a raster renderer needs a higher-resolution backing surface, keep that conversion internal to rendering. Preserve fractional generated geometry and percentage positions. Origins, scrollbar treatment, numeric-entry precision, renderer choice, and pinch-zoom behavior remain open.
+Disposal removes the host/runtime, observers, listeners, timers, HMR subscription, and tools. History wrappers are restored only if still owned by Lattice. Pending requests are rejected; fetches are aborted, though an accepted server write may finish.
 
-## Agent interface
+## Tests and next work
 
-Expose Lattice-specific read and edit operations over WebMCP, retaining the JavaScript fallback. The public interface uses serializable inputs and results; callers need not understand Foldkit Messages or Effect values.
+`npm run check` covers types, geometry, history/query semantics, file conflicts/invalid data/symlinks, setup, production exclusion, and building. `npm run test:browser` covers panel/API operations, dragging, keyboard ownership, resize/navigation, storage errors, preset save/update/undo, and the WebMCP adapter.
 
-Typed ports can bridge external requests into the embedded program. Project a documented context shape from the Model rather than exposing the internal Model as the public contract. Define request/result correlation and revision semantics before implementation: accepting a port message must not be reported as a completed or persisted edit.
-
-Foldkit's [DevTools MCP](https://foldkit.dev/core/devtools) is useful for developing Lattice, but it is a separate integration from the requested WebMCP interface. Propose disabling Foldkit's debugging overlay and recording by default in consumer projects, so Lattice does not introduce another launcher or an unbounded pointer-event history.
-
-## Undo and redo
-
-Confirmed for v1: undo/redo with standard keyboard shortcuts, one completed drag per history step, and one grouped agent edit per step. The platform bindings are recorded in [PLAN.md](PLAN.md).
-
-History is session-only: keep undo/redo data in memory, exclude it from persisted schemas, and initialize both histories empty on a fresh page load. Saved grid configurations survive refresh or reopening the page; their history does not.
-
-Confirmed navigation behavior: loading another page's grid configuration clears undo and redo, including client-side navigation without a refresh. Returning to a previously visited page reloads its saved configuration with empty histories; do not retain a per-page history cache.
-
-Proposed implementation:
-
-- Keep history in the Foldkit Model and apply undo/redo through the same update flow as other edits. Foldkit DevTools history is not the product's undo mechanism.
-- Record committed domain changes, preserving stable IDs. Keep pointer previews separate from committed configuration; commit once when the drag finishes. A canceled drag restores its starting state without creating a history entry.
-- Treat a grouped agent edit as one validated, atomic transaction. Invalid groups and no-op edits do not add history. A new committed edit after undo clears the redo branch.
-- Undo/redo changes source settings and recalculates geometry using current page dimensions. Persist the resulting configuration through the normal persistence path.
-- Gate keyboard handling on focus within Lattice, including a focused individual guide. Leave text-editing controls and host-page shortcuts alone. Account for shadow-root event paths when identifying the actual focused control.
-- Reset history when navigation switches the resolved configuration scope, rather than on every URL notification. Creating a query-specific configuration through an edit is still an undoable edit, not a navigation reset.
-- Cancel an in-progress drag when navigating to another configuration. Associate pending reads, writes, and agent results with their originating scope so late work cannot mutate the newly active page. Persistence commands capture their target scope when created.
-- History limits and shared preset-library changes remain open.
-
-## Development-only delivery
-
-Use a Lattice Vite plugin restricted to development serving, with a development-only client entry. Vite supports conditional plugin application through [`apply`](https://vite.dev/guide/api-plugin.html#conditional-application). Confirm preview and host-access behavior before release; a development command alone does not establish that a page is local.
-
-Keep Lattice's bundled Foldkit/Effect runtime independent of the host application's versions. Verify packaging and bundling before promising compatibility with hosts that already use either dependency.
-
-The first integration check must demonstrate both a functioning overlay during development and production output with no Lattice JavaScript, CSS, or runtime references. Foldkit's own DevTools production exclusion does not establish exclusion of Lattice as a whole.
-
-## Next decisions
-
-1. Coordinate origins, scrollbar treatment, numeric-entry precision, renderer, and long-document behavior. CSS-pixel coordinates, 1 CSS pixel strokes, and whole-pixel individual dragging are confirmed.
-2. Undo/redo keyboard ownership, history limits, and shared preset-library scope. Session-only history, reset on navigation to another configuration, and drag/batch grouping are confirmed.
-3. Domain schemas, agent operation results, and preset transactions.
-4. Persistence versioning, URL identity, navigation, and failure behavior.
-5. Preset configuration interface, file-write conflict/recovery semantics, and project identity for browser storage.
-6. Package entry points, development-host rules, shortcuts, and focused acceptance tests.
-
-The handoff is not implementation-ready until the relevant open decisions here and in PLAN.md are resolved or explicitly delegated as implementation choices.
+Before publishing: finalize package name/license, verify supported browsers and real browser zoom, validate native WebMCP agent discovery, and check Vite 7 separately. Product backlog includes element grids, breakpoints, snapping, touch refinement, overlap selection, configurable shortcuts/URL matching, and cross-tab reconciliation. Extend the existing state owner rather than adding a second store.

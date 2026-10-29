@@ -1,0 +1,61 @@
+{
+  "name": "lattice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development-only page grids for people and agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wking-io/lattice.git"
+  },
+  "type": "module",
+  "bin": {
+    "lattice": "./dist/setup.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "agent-integration.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "prepack": "npm run build",
+    "dev": "npm run build && vite --config playground/vite.config.ts",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "4.0.0",
+    "effect": "4.0.0",
+    "foldkit": "0.169.0"
+  },
+  "peerDependencies": {
+    "vite": ">=7 <9"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^25.0.0",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.10",
+    "typescript": "~7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

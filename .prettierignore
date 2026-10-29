@@ -1,0 +1,8 @@
+node_modules
+dist
+test-results
+playwright-report
+coverage
+package-lock.json
+playground/lattice.presets.json
+playground/.lattice-test-presets.json

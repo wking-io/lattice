@@ -1,6 +1,6 @@
 # Lattice plan
 
-Status: product planning. No runtime implementation yet.
+Status: initial library implementation complete; release validation remains. See README.md and ARCHITECTURE.md for the implemented interface and verification limits.
 Updated: 2026-10-28.
 Project name: Lattice. Public repository: `wking-io/lattice`.
 The published package name and license remain to be selected.
@@ -15,18 +15,18 @@ The library must contribute no JavaScript or CSS to deployed production bundles.
 
 ### Development integration
 
-Vite is the first installation target. Effect v4 and Foldkit are the requested implementation stack; the upstream manifests support this combination. [Architecture discussion](ARCHITECTURE.md) records the proposed design, compatibility evidence, and remaining technical decisions.
+Vite is the first installation target. Effect v4 and Foldkit are implemented with pinned compatible packages. [Architecture](ARCHITECTURE.md) records state ownership, module boundaries, and remaining release checks.
 
 ### Items and ownership
 
 Every rendered line belongs to a preset, column, row, or individual item. A page can contain any number of these items.
 
-| Item | Behavior |
-| --- | --- |
-| Preset | An applied snapshot containing column, row, and individual items. Its lines cannot be dragged. Unlink it to release its underlying items. |
-| Columns | A generated column grid with Figma-style settings. Change its settings to change the grid; its boundaries cannot be dragged. |
-| Rows | A generated row grid with Figma-style settings. Change its settings to change the grid; its boundaries cannot be dragged. |
-| Individual | One horizontal or vertical guide with a pixel or percentage position. It can be dragged. |
+| Item       | Behavior                                                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Preset     | An applied snapshot containing column, row, and individual items. Its lines cannot be dragged. Unlink it to release its underlying items. |
+| Columns    | A generated column grid with Figma-style settings. Change its settings to change the grid; its boundaries cannot be dragged.              |
+| Rows       | A generated row grid with Figma-style settings. Change its settings to change the grid; its boundaries cannot be dragged.                 |
+| Individual | One horizontal or vertical guide with a pixel or percentage position. It can be dragged.                                                  |
 
 Items support editable names with automatic defaults. Agent context includes names and stable IDs; duplicate names must not make item identity ambiguous.
 
@@ -56,14 +56,14 @@ The supported combinations and automatic-count behavior must be checked against 
 - There are no breakpoint-specific configurations or automatic switches between desktop/mobile presets in v1.
 - Preserve the configured values on resize. Stretch grids and percentage guides still resolve against their current dimensions; fixed pixel values remain fixed in their coordinate system.
 
-CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Pixel-based individual drags snap to whole CSS pixels. Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom behavior remain open.
+CSS pixels are confirmed for coordinates and line thickness, so guides scale visually with the page under browser zoom. Pixel-based individual drags snap to whole CSS pixels. The implementation uses left/top origins, excludes the viewport scrollbar, and accepts fractional numeric input. Pinch zoom still needs verification.
 
 ### Appearance
 
 - Lines are 1 CSS pixel thick, including when browser zoom changes. Their apparent screen thickness scales with the page; do not compensate to maintain a constant device-pixel hairline.
 - Provide bright preset colors and a custom-color option.
 - Supply common built-in grid presets and support user-created presets.
-- The six built-in presets below are selected. Exact palettes and opacity defaults remain open.
+- The six built-ins below are selected. The implementation offers six bright colors plus a custom hex color and opacity; default opacity is 0.8 (0.5 for built-in baselines).
 
 ### Presets
 
@@ -92,16 +92,16 @@ Use a floating panel. A keyboard shortcut shows or hides it. When hidden, it lea
 
 There is a separate shortcut for grid visibility. The allowed states are:
 
-| Grids | Panel | Allowed |
-| --- | --- | --- |
-| Visible | Visible | Yes |
-| Visible | Hidden | Yes |
-| Hidden | Hidden | Yes |
-| Hidden | Visible | No |
+| Grids   | Panel   | Allowed |
+| ------- | ------- | ------- |
+| Visible | Visible | Yes     |
+| Visible | Hidden  | Yes     |
+| Hidden  | Hidden  | Yes     |
+| Hidden  | Visible | No      |
 
 Hiding all grids always hides the panel. Showing grids again restores the panel's previous visibility. Hiding only the panel leaves the grids visible.
 
-Support visibility for individual items. Include a modifier paired with clicking that lets the user ignore visible grid lines and interact with the underlying page. The exact shortcuts and modifier are not selected yet.
+Support visibility for individual items. Include a modifier paired with clicking that lets the user ignore visible grid lines and interact with the underlying page. Implemented shortcuts: Alt/Option+G for grids and Alt/Option+Shift+G for the panel. Command-click on macOS or Control-click on Windows/Linux bypasses individual guides. Showing the panel while grids are hidden reveals both.
 
 ### Undo and redo
 
@@ -113,12 +113,12 @@ Navigation that loads another page's grid configuration clears both histories, i
 
 Use these default bindings:
 
-| Platform | Undo | Redo |
-| --- | --- | --- |
-| macOS | Command+Z | Command+Shift+Z |
+| Platform      | Undo      | Redo                         |
+| ------------- | --------- | ---------------------------- |
+| macOS         | Command+Z | Command+Shift+Z              |
 | Windows/Linux | Control+Z | Control+Shift+Z or Control+Y |
 
-Proposed keyboard ownership: consume these shortcuts only when Lattice has focus, excluding text-editing controls. Text fields retain their editing history, and the host page retains its shortcuts outside Lattice. Treatment of shared preset-library changes still needs a decision.
+Implemented keyboard ownership: consume these shortcuts only when Lattice has focus, excluding text-editing controls. Text fields retain their editing history, and the host page retains its shortcuts outside Lattice. Undo of a preset save restores page items but keeps the repo definition; deleting a shared definition is explicit. History is capped at 100 entries. Master visibility is not undoable.
 
 ### Persistence and URLs
 
@@ -128,17 +128,17 @@ Query parameters are ignored initially: a query URL inherits an existing configu
 
 Example:
 
-| URL/action | Result |
-| --- | --- |
-| Configure `/products` | Save the base configuration. |
-| Visit `/products?sort=price` | Use the base configuration until edited. |
-| Edit a grid on `?sort=price` | Save an independent query-specific configuration; leave the base unchanged. |
-| Visit `/products?sort=name` without an override | Continue using the base configuration. |
-| Reset the `?sort=price` override | Remove it and restore inheritance from the base. |
+| URL/action                                      | Result                                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
+| Configure `/products`                           | Save the base configuration.                                                |
+| Visit `/products?sort=price`                    | Use the base configuration until edited.                                    |
+| Edit a grid on `?sort=price`                    | Save an independent query-specific configuration; leave the base unchanged. |
+| Visit `/products?sort=name` without an override | Continue using the base configuration.                                      |
+| Reset the `?sort=price` override                | Remove it and restore inheritance from the base.                            |
 
 Provide **Reset to base configuration**. Changing an individual item's visibility counts as a configuration edit and can create a query override. The master visibility toggle is a separately remembered viewing preference and does not create an override.
 
-Hash routing, query normalization, and initial creation on a query URL without an existing base configuration are still open.
+Implementation defaults: ignore hash fragments, sort query keys while preserving repeated-value order, and create the base configuration on a first edit when no base exists. Configurable URL matching and hash routers remain in the backlog.
 
 ### Agent access and editing
 
@@ -154,45 +154,45 @@ The compact [agent skill](skills/lattice/SKILL.md) guides agents toward WebMCP, 
 
 WebMCP is an evolving integration. Check the [current imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api), feature-detect supported capabilities, and verify discovery and invocation from the intended agent. Registering tools in a browser and making them available to an external agent are separate checks.
 
-## Recommended implementation defaults to confirm
+## Implementation defaults
 
-These suggestions were discussed but were not individually finalized:
+The first implementation adopts the following defaults:
 
 - Use browser content width excluding the scrollbar. Resolve vertical percentages against that width and horizontal percentages against document height; use left/top origins. CSS pixels for coordinates and strokes are confirmed above.
 - Recalculate when zoom, viewport dimensions, or document content size changes. A horizontal percentage guide or stretch row can move when content expands. The overlay must not increase the document dimensions it measures.
 - Draw both boundaries of columns and rows with transparent interiors. Avoid visually thickening coincident boundaries.
 - Give thin draggable lines a wider invisible hit area and expose precise numeric editing, deletion, and duplication. Undo/redo is confirmed above.
 - Preserve the unit when dragging an individual percentage guide. Preserve saved guides that move off-screen after resize.
-- Retain fractional positions in generated geometry and percentage guides. Allow fractional values through precise numeric entry; this input behavior remains to be confirmed separately from whole-pixel dragging.
+- Retain fractional positions in generated geometry and percentage guides. Allow fractional values through precise numeric entry; this is distinct from whole-pixel dragging.
 - Store page configurations by origin and path with the agreed query-override behavior. Scope browser state to the consuming project as well so unrelated projects reusing a local address do not inherit each other's grids. Project presets load from the configured repository file regardless of which local port serves that project.
 - Keep the agent API available while the panel or grid lines are hidden.
-- Treat grouped multi-item agent edits as one undoable change. Proposed details: apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
+- Treat grouped multi-item agent edits as one undoable change. Apply each group atomically and read the resulting state; preserve existing items unless replacement is requested.
 
 ## Built-in presets
 
 The following six presets are confirmed. They use the same preset/item schemas as project presets. These are Lattice defaults inspired by established patterns, not exact reproductions of another framework's complete responsive layout.
 
-| Preset | Underlying items | Gutter | Outer margin |
-| --- | --- | --- | --- |
-| 4 columns | One stretch column item, count 4 | 16px | 16px each side |
-| 8 columns | One stretch column item, count 8 | 24px | 24px each side |
-| 12 columns | One stretch column item, count 12 | 24px | 24px each side |
-| 16 columns | One stretch column item, count 16 | 16px | 16px each side |
-| 4px baseline | One top-aligned row item, automatic count, fixed height 4px, offset 0 | 0px | Not applicable |
-| 8px baseline | One top-aligned row item, automatic count, fixed height 8px, offset 0 | 0px | Not applicable |
+| Preset       | Underlying items                                                      | Gutter | Outer margin   |
+| ------------ | --------------------------------------------------------------------- | ------ | -------------- |
+| 4 columns    | One stretch column item, count 4                                      | 16px   | 16px each side |
+| 8 columns    | One stretch column item, count 8                                      | 24px   | 24px each side |
+| 12 columns   | One stretch column item, count 12                                     | 24px   | 24px each side |
+| 16 columns   | One stretch column item, count 16                                     | 16px   | 16px each side |
+| 4px baseline | One top-aligned row item, automatic count, fixed height 4px, offset 0 | 0px    | Not applicable |
+| 8px baseline | One top-aligned row item, automatic count, fixed height 8px, offset 0 | 0px    | Not applicable |
 
 All values use CSS pixels. Baseline presets produce horizontal guides at 4px or 8px intervals across the document height; deduplicate shared row boundaries. Column presets stretch within the current browser width. Users may apply multiple presets together, such as 12 columns plus an 8px baseline. Selection is manual; v1 does not switch between presets at breakpoints.
 
 Basis for the starter set: [Material's web grid](https://m2.material.io/develop/web/supporting/layout-grid) uses 4, 8, and 12 columns; [Bootstrap's grid](https://getbootstrap.com/docs/5.2/layout/grid/) uses 12 columns with a 1.5rem default gutter; [Carbon's 2x Grid](https://www.carbondesignsystem.com/building-blocks/foundations/2x-grid/overview) includes 16-column layouts and an 8px base unit. Material also documents [4-unit typographic baselines and 8-unit layout spacing](https://m2.material.io/design/layout/understanding-layout.html). Lattice's CSS-pixel gutters and margins are design choices, not a promise of exact framework alignment.
 
-Built-ins are read-only. Users customize an application by unlinking its items and may save the result as a project preset. Built-ins remain available independently of project presets unless disabled in plugin configuration. Exact colors, opacity, and first-load application remain open.
+Built-ins are read-only. Users customize an application by unlinking its items and may save the result as a project preset. Built-ins remain available independently of project presets unless disabled in plugin configuration. A new page starts with an empty grid and a visible panel. No preset is automatically applied. Panel position is session-only.
 
 ## Preset configuration interface
 
-Support a dedicated `lattice.presets.json` file and an inline preset array in the Vite plugin options. People can edit either configuration directly. The panel writes only to the JSON file, creating it on the first save; it does not rewrite `vite.config.ts`. The default file is in the consuming project's root, with a configurable path. Source choices and read-only behavior are confirmed; exact option names and preset schemas remain proposed.
+Support a dedicated `lattice.presets.json` file and an inline preset array in the Vite plugin options. People can edit either configuration directly. The panel writes only to the JSON file, creating it on the first save; it does not rewrite `vite.config.ts`. The default file is in the consuming project's root, with a configurable path. Option names and the versioned JSON schema are implemented and documented in README.md.
 
 ```ts
-// Proposed Vite plugin options; the runtime is not implemented yet.
+// Implemented Vite plugin options.
 lattice({
   builtInPresets: false, // Defaults to true.
   presetsFile: './lattice.presets.json', // Default location; created on first save.
@@ -202,25 +202,15 @@ lattice({
 
 Present enabled built-ins, inline presets, and file presets together in the catalog. Inline presets remain available when built-ins are disabled. To customize an applied inline preset, unlink it, edit its underlying items, and save a new file preset. Keep source identity distinct so one source cannot silently overwrite another.
 
-Propose watching the JSON file and updating the catalog in connected pages when it changes. Reload inline definitions when the plugin configuration reloads. Existing applied snapshots remain unchanged until explicitly updated, even when a definition changes or built-ins are disabled.
+Watch the JSON file and update the catalog in connected pages when it changes. Reload inline definitions when the plugin configuration reloads. Existing applied snapshots remain unchanged until explicitly updated, even when a definition changes or built-ins are disabled.
 
-## Remaining decisions
+## Remaining release decisions and checks
 
-Resolve these before the implementation slice that depends on them:
-
-| Area | Decision |
-| --- | --- |
-| Packaging | Published package name and license. Lattice and the public `wking-io/lattice` repository are confirmed; npm name availability has not been checked. |
-| Installation | Vite is selected. Decide supported browsers and verify the development-only injection mechanism guarantees zero production bundle footprint. |
-| Local development | Supported local hostnames, loopback/LAN access, and how development mode is identified. |
-| Geometry | Origins, scrollbar treatment, numeric-entry precision, and pinch-zoom expectations. Coordinates and strokes use CSS pixels; pixel-based individual drags snap to whole CSS pixels. |
-| Preset inventory | Six built-ins and the option to omit them are confirmed. Decide bright palette and color/opacity scope. |
-| Editing UI | Individual-guide creation, numeric editing, selection of overlapping lines, keyboard editing, and undo history limits/shared-preset scope. History is session-only and resets when navigation loads another page's configuration. |
-| Shortcuts | Undo/redo bindings are specified above; settle their focus ownership, panel/grid keys, click-through modifier, and behavior when the panel shortcut is used while all grids are hidden. |
-| Initial state | First-load panel/grid visibility, default grid items, and panel-position persistence. |
-| URL identity | Query parameter ordering, hashes, query creation with no base state, and optional custom key handling. |
-| Preset lifecycle | JSON schema and path resolution, editing/deleting saved file definitions, name collisions, undo scope, conflict handling, and update behavior after a source is removed. Inline definitions are supported and read-only in the panel. |
-| Agent contract | Final tool/API schemas, add-versus-replace defaults, batch results, and the first verified browser/agent combination. |
+- Final npm package name and license; no package has been published.
+- Supported browser matrix, real desktop zoom, pinch zoom, and transformed root/body behavior.
+- Native WebMCP discovery and invocation from an external agent connection. The adapter harness and JavaScript fallback are tested.
+- Vite 7 compatibility verification; current integration tests run on Vite 8.
+- Whether to add cross-tab reconciliation before a broader release; current page storage uses last write wins.
 
 ## Backlog
 
@@ -228,11 +218,15 @@ Resolve these before the implementation slice that depends on them:
 - Breakpoint-specific configurations and responsive preset switching.
 - Converting generated column/row boundaries into individual guides, only if a real workflow calls for it.
 - Snapping guides to page elements.
-- Touch-specific editing.
+- Touch-specific editing and pinch-zoom validation.
+- Overlapping-guide selection, configurable shortcuts, and configurable URL/hash matching.
+- Cross-tab page-state reconciliation; current localStorage writes use last write wins.
 - Live cross-device or team synchronization beyond sharing preset files through Git.
 - Nested presets, only if independent copies prove insufficient.
 
-## Implementation sequence
+## Implementation sequence and status
+
+The initial implementation covers steps 1–6 below, including the JavaScript agent fallback and a WebMCP registration harness. Native WebMCP discovery and release preparation remain. The original sequence is retained for context.
 
 1. **Repository and integration foundation.** The public repository and initial Vite target are selected. Verify the Effect/Foldkit embedding and prove that an empty development integration contributes nothing to a production build before adding the full overlay.
 2. **First usable slice.** Define item identity and state operations; render a column item and an individual guide; connect them to a basic floating panel and documented read API.
@@ -263,7 +257,7 @@ Use focused automated checks for state and geometry, plus browser checks for int
 
 ## Current artifacts
 
-- [Architecture discussion](ARCHITECTURE.md): selected technology direction and proposed design; discussion in progress.
-- [Compact agent skill](skills/lattice/SKILL.md): drafted and format-checked.
-- [Agent setup guidance](agent-integration.md): drafted.
-- This plan: conversation decisions consolidated; implementation has not started.
+- [Architecture](ARCHITECTURE.md): implemented modules, ownership, operations, and handoff notes.
+- [Compact agent skill](skills/lattice/SKILL.md): bundled with the package, with an API reference and setup command.
+- [Agent setup guidance](agent-integration.md): installation and verification boundaries.
+- Runtime, Vite plugin, playground, tests, and CI are implemented. See README.md for commands and current limits.

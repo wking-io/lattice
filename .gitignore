@@ -1,1 +1,10 @@
 .DS_Store
+node_modules/
+dist/
+test-results/
+playwright-report/
+coverage/
+playground/lattice.presets.json
+playground/.lattice-test-presets.json*
+*.tsbuildinfo
+*.tgz
